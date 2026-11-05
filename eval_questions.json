@@ -1,0 +1,22 @@
+[
+  {"id": 1, "type": "esperado", "question": "Qual o padrão de nome para uma branch de hotfix?", "expected_source": "nomenclatura"},
+  {"id": 2, "type": "esperado", "question": "Como funciona o processo de deploy em produção?", "expected_source": "processo-de-deploy"},
+  {"id": 3, "type": "esperado", "question": "Quais são os três tipos de log de auditoria que todo sistema deve registrar?", "expected_source": "padroes-de-auditoria"},
+  {"id": 4, "type": "esperado", "question": "Qual a diferença entre o Dockerfile e o local.Dockerfile de um projeto?", "expected_source": "padroes-docker"},
+  {"id": 5, "type": "esperado", "question": "Qual o formato do nome de um script de migration de banco de dados?", "expected_source": "migrations-banco-de-dados"},
+  {"id": 6, "type": "esperado", "question": "O que é o Portal de Acesso e qual hierarquia de dados ele usa?", "expected_source": "portal-de-acesso"},
+  {"id": 7, "type": "esperado", "question": "Quais painéis de observabilidade cada sistema possui em produção?", "expected_source": "monitoramento-e-observabilidade"},
+  {"id": 8, "type": "esperado", "question": "Quais ferramentas são usadas para CI/CD e registro de artefatos?", "expected_source": "ambiente-e-ferramentas"},
+  {"id": 9, "type": "esperado", "question": "Como funciona o versionamento semântico das releases?", "expected_source": "branching-commits-versionamento"},
+  {"id": 10, "type": "esperado", "question": "O deploy em ambiente de desenvolvimento precisa de aprovação humana?", "expected_source": "processo-de-deploy"},
+  {"id": 11, "type": "esperado", "question": "Qual prefixo é usado para papéis de identidade compartilhados entre sistemas?", "expected_source": "nomenclatura"},
+  {"id": 12, "type": "esperado", "question": "Quantas fases e quantas semanas tem o roteiro do Portal de Acesso?", "expected_source": "portal-de-acesso"},
+  {"id": 13, "type": "esperado", "question": "O que o checklist de migration exige antes de abrir o pull request?", "expected_source": "migrations-banco-de-dados"},
+  {"id": 14, "type": "esperado", "question": "Como é feita a correlação de logs durante a investigação de um incidente?", "expected_source": "monitoramento-e-observabilidade"},
+  {"id": 15, "type": "esperado", "question": "Quais tipos de commit são aceitos pelo padrão Conventional Commits usado no time?", "expected_source": "branching-commits-versionamento"},
+  {"id": 16, "type": "fora_de_escopo", "question": "Qual a capital da França?", "expected_source": null},
+  {"id": 17, "type": "fora_de_escopo", "question": "Qual time vai ganhar a copa do mundo de 2026?", "expected_source": null},
+  {"id": 18, "type": "fora_de_escopo", "question": "Qual a melhor receita de bolo de chocolate?", "expected_source": null},
+  {"id": 19, "type": "limite", "question": "", "expected_source": null},
+  {"id": 20, "type": "limite", "question": "ajuda", "expected_source": null}
+]

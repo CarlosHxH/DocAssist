@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DocAssist · Documentação de TI</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23112e37'/%3E%3Cpath d='M28 34h44a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6H46l-14 12V66h-4a6 6 0 0 1-6-6V40a6 6 0 0 1 6-6Z' fill='%2350c6b0'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<aside>
+  <div class="brand">Doc<span>Assist</span></div>
+  <h2>Padrões internos,<br>direto ao ponto.</h2>
+  <p>Assistente de documentação<br>de TI · RAG local</p>
+  <div class="doc">
+    <span>BASE DE CONHECIMENTO</span>
+    <strong id="doc-count">documentos fictícios</strong>
+    <p id="doc-names">carregando…</p>
+  </div>
+  <div id="status" role="status">Verificando modelo local…</div>
+  <button id="clear" class="secondary">Nova conversa</button>
+  <small>Processamento 100% local · CPU<br>Nenhum dado sai desta máquina</small>
+</aside>
+<main>
+  <header><span>BASE DE CONHECIMENTO · TI</span><span class="tag">RAG LOCAL</span></header>
+  <section id="intro">
+    <div class="eyebrow">CONSULTE A DOCUMENTAÇÃO</div>
+    <h1>Qual é a sua dúvida?</h1>
+    <p>Pergunte sobre deploy, branching, Docker, migrations, auditoria, monitoramento ou o Portal de Acesso. As fontes recuperadas acompanham cada resposta.</p>
+    <div class="suggestions">
+      <button>Qual o padrão de nome para uma branch de hotfix?</button>
+      <button>Como funciona o deploy em produção?</button>
+      <button>Quais são os três tipos de log de auditoria?</button>
+      <button>O que é o Portal de Acesso?</button>
+    </div>
+  </section>
+  <section id="chat" aria-live="polite" aria-label="Conversa"></section>
+  <footer>
+    <form id="form">
+      <textarea id="question" rows="2" maxlength="1200" placeholder="Pergunte sobre os padrões internos…" aria-label="Sua pergunta" required></textarea>
+      <button id="send" type="submit">Enviar ↑</button>
+    </form>
+    <p>Respostas geradas por IA podem conter erros. Consulte sempre as fontes recuperadas.</p>
+  </footer>
+</main>
+</body>
+</html>
