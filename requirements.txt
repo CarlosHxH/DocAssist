@@ -1,0 +1,8 @@
+# DocAssist não depende de nenhum pacote Python externo — usa apenas a biblioteca padrão
+# (urllib, json, math, dataclasses, pathlib). Essa foi uma decisão deliberada de projeto:
+# o ambiente de desenvolvimento usa uma versão recente de Python para a qual pacotes como
+# numpy/chromadb ainda não tinham wheels pré-compiladas disponíveis, e evitar a
+# dependência simplifica a reprodutibilidade (veja README.md).
+#
+# A única dependência externa do projeto é o próprio Ollama (serviço local), que não é
+# instalado via pip — ver instruções no README.md.
