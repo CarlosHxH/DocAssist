@@ -1,4 +1,5 @@
 # DocAssist — assistente de documentação interna de TI (RAG local)
+Integrates: Carlos Daniel, Cesar de Oliveira, Layssa MAtos e Robson Rodrigues.
 
 MVP desenvolvido para o projeto final transversal "IA Avançada para Infraestrutura, Dados
 e Desenvolvimento de TI" (SESP-MT). Responde perguntas em linguagem natural sobre padrões
