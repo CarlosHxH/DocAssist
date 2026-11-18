@@ -1,8 +1,6 @@
-# DocAssist não depende de nenhum pacote Python externo — usa apenas a biblioteca padrão
-# (urllib, json, math, dataclasses, pathlib). Essa foi uma decisão deliberada de projeto:
-# o ambiente de desenvolvimento usa uma versão recente de Python para a qual pacotes como
-# numpy/chromadb ainda não tinham wheels pré-compiladas disponíveis, e evitar a
-# dependência simplifica a reprodutibilidade (veja README.md).
+# Banco vetorial persistente (armazenado em SQLite em CHROMA_PATH).
+chromadb>=0.5,<2
+# Leitura do arquivo .env (ver .env.example).
+python-dotenv>=1.0
 #
-# A única dependência externa do projeto é o próprio Ollama (serviço local), que não é
-# instalado via pip — ver instruções no README.md.
+# O acesso à API de IA (Ollama ou compatível com OpenAI) usa só a biblioteca padrão (urllib).

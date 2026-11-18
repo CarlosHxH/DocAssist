@@ -1,4 +1,4 @@
-"""Núcleo do pipeline RAG: recuperação (busca vetorial em memória) + geração grounded.
+"""Núcleo do pipeline RAG: recuperação (busca vetorial no ChromaDB) + geração grounded.
 
 Mantido separado da interface (CLI/Streamlit) para que app.py e eval.py reusem a mesma
 lógica, e para que os testes de cenário (ver tests/) possam chamar `answer()` diretamente.
@@ -7,20 +7,22 @@ lógica, e para que os testes de cenário (ver tests/) possam chamar `answer()` 
 from __future__ import annotations
 
 import json
-import math
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import chromadb
+
+import config
+import vector_store
 from ollama_client import OllamaUnavailableError, embed, generate
 
-INDEX_PATH = Path(__file__).parent / "index.json"
 LOG_PATH = Path(__file__).parent / "logs" / "interactions.jsonl"
 
-TOP_K = 4
+TOP_K = config.TOP_K
 # Abaixo deste score de similaridade de cosseno, consideramos que não há contexto
 # relevante o suficiente na base e o sistema deve recusar responder em vez de alucinar.
-SIMILARITY_THRESHOLD = 0.40
+SIMILARITY_THRESHOLD = config.SIMILARITY_THRESHOLD
 
 NO_CONTEXT_MESSAGE = (
     "Não encontrei essa informação na base de documentação disponível. "
@@ -59,36 +61,30 @@ class AnswerResult:
     error: str | None = None
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
+def load_index() -> chromadb.Collection:
+    return vector_store.get_collection()
 
 
-def load_index() -> list[dict]:
-    if not INDEX_PATH.exists():
-        raise FileNotFoundError(
-            f"{INDEX_PATH} não existe. Rode `python ingest.py` primeiro para gerar o índice."
-        )
-    data = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
-    return data["chunks"]
-
-
-def retrieve(question_embedding: list[float], chunks: list[dict], top_k: int = TOP_K) -> list[RetrievedChunk]:
-    scored = [
+def retrieve(
+    question_embedding: list[float], collection: chromadb.Collection, top_k: int = TOP_K
+) -> list[RetrievedChunk]:
+    result = collection.query(
+        query_embeddings=[question_embedding],
+        n_results=top_k,
+        include=["documents", "metadatas", "distances"],
+    )
+    # Coleção criada com espaço "cosine": distância = 1 - similaridade de cosseno.
+    return [
         RetrievedChunk(
-            score=_cosine_similarity(question_embedding, chunk["embedding"]),
-            source=chunk["source"],
-            heading=chunk["heading"],
-            text=chunk["text"],
+            score=1.0 - distance,
+            source=metadata["source"],
+            heading=metadata["heading"],
+            text=document,
         )
-        for chunk in chunks
+        for document, metadata, distance in zip(
+            result["documents"][0], result["metadatas"][0], result["distances"][0]
+        )
     ]
-    scored.sort(key=lambda c: c.score, reverse=True)
-    return scored[:top_k]
 
 
 def _build_prompt(question: str, retrieved: list[RetrievedChunk]) -> str:
@@ -114,7 +110,7 @@ def _log_interaction(result: AnswerResult) -> None:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def answer(question: str, chunks: list[dict] | None = None) -> AnswerResult:
+def answer(question: str, collection: chromadb.Collection | None = None) -> AnswerResult:
     start = time.monotonic()
     question = (question or "").strip()
 
@@ -128,12 +124,12 @@ def answer(question: str, chunks: list[dict] | None = None) -> AnswerResult:
         _log_interaction(result)
         return result
 
-    if chunks is None:
-        chunks = load_index()
+    if collection is None:
+        collection = load_index()
 
     try:
         question_embedding = embed(question)
-        retrieved = retrieve(question_embedding, chunks)
+        retrieved = retrieve(question_embedding, collection)
         best_score = retrieved[0].score if retrieved else 0.0
 
         if not retrieved or best_score < SIMILARITY_THRESHOLD:
@@ -166,8 +162,8 @@ def answer(question: str, chunks: list[dict] | None = None) -> AnswerResult:
         result = AnswerResult(
             question=question,
             answer=(
-                "O serviço de IA local (Ollama) não está disponível no momento. "
-                "Verifique se ele está rodando (`ollama serve`) e tente novamente."
+                "O serviço de IA não está disponível no momento. "
+                "Verifique se a API configurada no .env está acessível e tente novamente."
             ),
             status="erro",
             latency_seconds=time.monotonic() - start,

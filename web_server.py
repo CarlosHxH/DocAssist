@@ -1,8 +1,7 @@
 """Servidor web local do DocAssist — expõe uma interface de chat em HTML/JS (static/) e
 uma API JSON simples, reaproveitando o mesmo pipeline RAG de app.py/rag.py.
 
-Usa apenas a biblioteca padrão do Python (http.server), seguindo a mesma decisão de
-projeto do restante do MVP: zero dependências externas (ver requirements.txt).
+Usa o http.server da biblioteca padrão do Python (sem Flask/FastAPI).
 
 Uso:
     python web_server.py [--host 127.0.0.1] [--port 8765]
@@ -15,14 +14,15 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import chromadb
+
+import config
 import ollama_client
 import rag
+import vector_store
 
 STATIC_DIR = Path(__file__).parent / "static"
-CORPUS_DIR = Path(__file__).parent / "corpus"
-
-GENERATION_MODEL = "qwen2.5:3b"
-EMBEDDING_MODEL = "all-minilm"
+CORPUS_DIR = config.CORPUS_DIR
 
 # Arquivos estáticos servidos tal como estão (sem build step), como em mini-chat-rag/static.
 STATIC_FILES = {
@@ -37,12 +37,13 @@ def _load_doc_titles() -> dict[str, str]:
     """Mapeia cada arquivo do corpus ao seu título (linha `# ...`), para a UI mostrar um
     nome legível em vez do nome de arquivo cru."""
     titles: dict[str, str] = {}
-    for path in sorted(CORPUS_DIR.glob("*.md")):
+    for path in sorted(CORPUS_DIR.rglob("*.md")):
+        name = path.relative_to(CORPUS_DIR).as_posix()
         try:
             first_line = path.read_text(encoding="utf-8").splitlines()[0]
         except (OSError, IndexError):
             first_line = ""
-        titles[path.name] = first_line.lstrip("#").strip() or path.name
+        titles[name] = first_line.lstrip("#").strip() if first_line.startswith("#") else path.stem
     return titles
 
 
@@ -70,7 +71,8 @@ def _sources_detail(result: rag.AnswerResult, doc_titles: dict[str, str]) -> lis
 
 class DocAssistHandler(BaseHTTPRequestHandler):
     # Carregados uma vez por processo (não por requisição), definidos em main().
-    chunks: list[dict] = []
+    collection: chromadb.Collection | None = None
+    doc_names: list[str] = []
     doc_titles: dict[str, str] = {}
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002 (nome da API padrão)
@@ -97,17 +99,16 @@ class DocAssistHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/api/health":
-            doc_names = sorted({chunk["source"] for chunk in self.chunks})
-            doc_titles = [self.doc_titles.get(name, name) for name in doc_names]
+            doc_titles = [self.doc_titles.get(name, name) for name in self.doc_names]
             self._write_json(
                 {
                     "ready": ollama_client.is_available(),
-                    "generation_model": GENERATION_MODEL,
-                    "embedding_model": EMBEDDING_MODEL,
-                    "docs": len(doc_names),
-                    "doc_names": doc_names,
+                    "generation_model": config.GENERATION_MODEL,
+                    "embedding_model": config.EMBEDDING_MODEL,
+                    "docs": len(self.doc_names),
+                    "doc_names": self.doc_names,
                     "doc_titles": doc_titles,
-                    "chunks": len(self.chunks),
+                    "chunks": self.collection.count() if self.collection else 0,
                 }
             )
             return
@@ -136,7 +137,7 @@ class DocAssistHandler(BaseHTTPRequestHandler):
         question = str(data.get("question", ""))
 
         try:
-            result = rag.answer(question, chunks=self.chunks)
+            result = rag.answer(question, collection=self.collection)
         except Exception as exc:  # falha inesperada não deve derrubar o servidor
             print(f"[web] erro inesperado ao responder pergunta: {exc!r}")
             self._write_json(
@@ -168,15 +169,16 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        DocAssistHandler.chunks = rag.load_index()
+        DocAssistHandler.collection = rag.load_index()
     except FileNotFoundError as exc:
         print(f"Erro: {exc}")
         raise SystemExit(1) from exc
+    DocAssistHandler.doc_names = vector_store.list_sources(DocAssistHandler.collection)
     DocAssistHandler.doc_titles = _load_doc_titles()
 
     server = ThreadingHTTPServer((args.host, args.port), DocAssistHandler)
     url = f"http://{args.host}:{args.port}"
-    print(f"DocAssist rodando em {url}  ({len(DocAssistHandler.chunks)} trechos indexados)")
+    print(f"DocAssist rodando em {url}  ({DocAssistHandler.collection.count()} trechos indexados)")
     print("Pressione Ctrl+C para encerrar.")
     try:
         server.serve_forever()

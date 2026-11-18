@@ -33,7 +33,7 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
           rag.answer()
                1. embed(pergunta)              → ollama_client.py → Ollama /api/embeddings
                                                    (modelo all-minilm)
-               2. busca vetorial top-k em memória (cosine similarity, index.json)
+               2. busca vetorial top-k no ChromaDB (cosseno, SQLite em chroma_db/)
                3. se a melhor similaridade < limiar (0.40) → recusa responder
                4. monta prompt = instruções + trechos recuperados + pergunta
                5. generate(prompt)              → ollama_client.py → Ollama /api/generate
@@ -44,7 +44,9 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
 
 `ingest.py` é o componente de ingestão: lê os `.md` de `corpus/`, divide em trechos por
 seção (e subdivide seções longas, respeitando o limite de contexto do modelo de
-embeddings), gera o embedding de cada trecho via Ollama e persiste tudo em `index.json`.
+embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no ChromaDB (SQLite em
+`chroma_db/`). Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver
+`.env.example`); ao trocar `EMBEDDING_MODEL`, rode `python ingest.py` novamente.
 
 ## 3. Uso efetivo de IA
 
@@ -182,7 +184,9 @@ linguagem natural compreensível, nunca um stacktrace cru.
 docassist/
   corpus/                  documentação fictícia (.md) usada como base de conhecimento
   ollama_client.py         cliente HTTP mínimo para a API local do Ollama
-  ingest.py                chunking + geração de embeddings + index.json
+  config.py                configuração lida do .env (API, modelos, ChromaDB)
+  vector_store.py          acesso ao ChromaDB persistente
+  ingest.py                chunking + geração de embeddings + ChromaDB
   rag.py                   núcleo do pipeline RAG (retrieval + geração + logging)
   app.py                   interface de linha de comando
   web_server.py            servidor HTTP do site de chat (stdlib, sem Flask/FastAPI)
@@ -191,7 +195,8 @@ docassist/
   static/app.js            site de chat — lógica (fetch, histórico, status)
   eval.py                  roda eval_questions.json e gera o relatório de validação
   eval_questions.json      conjunto de perguntas de teste com gabarito
-  index.json               índice vetorial gerado por ingest.py (não versionar se o corpus mudar)
+  chroma_db/               banco vetorial ChromaDB (SQLite) gerado por ingest.py (não versionado)
+  .env.example             modelo do .env (copie para .env)
   logs/interactions.jsonl  log de cada interação (observabilidade)
   tests/                   evidências dos cenários de teste e da avaliação
 ```

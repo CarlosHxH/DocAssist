@@ -30,14 +30,14 @@ def grade(item: dict, result: rag.AnswerResult) -> bool:
 
 
 def main() -> None:
-    chunks = rag.load_index()
+    collection = rag.load_index()
     questions = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
 
     rows = []
     passed = 0
     start = time.monotonic()
     for item in questions:
-        result = rag.answer(item["question"], chunks=chunks)
+        result = rag.answer(item["question"], collection=collection)
         ok = grade(item, result)
         passed += int(ok)
         rows.append((item, result, ok))

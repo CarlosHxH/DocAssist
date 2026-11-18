@@ -1,6 +1,7 @@
 services:
   ollama:
     image: ollama/ollama:latest
+    profiles: ["local"]
     volumes:
       - ollama_data:/root/.ollama
     ports:
@@ -25,12 +26,15 @@ services:
   # O `app` só inicia depois que este passo termina com sucesso (ver depends_on abaixo).
   ollama-pull:
     image: ollama/ollama:latest
+    profiles: ["local"]
     depends_on:
       ollama:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["sh", "-c", "ollama pull all-minilm && ollama pull qwen2.5:3b"]
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-minilm}
+      GENERATION_MODEL: ${GENERATION_MODEL:-qwen2.5:3b}
+    entrypoint: ["sh", "-c", "ollama pull $${EMBEDDING_MODEL:-all-minilm} && ollama pull $${GENERATION_MODEL:-qwen2.5:3b}"]
     restart: "no"
 
   app:
@@ -38,13 +42,20 @@ services:
     depends_on:
       ollama-pull:
         condition: service_completed_successfully
+    # Modelos, provedor, chave etc. vêm do .env; a URL da API aponta para o container
+    # do Ollama, a menos que LLM_API_URL_DOCKER seja definida.
+    env_file:
+      - path: .env
+        required: false
     environment:
-      OLLAMA_HOST: http://ollama:11434
+      LLM_API_URL: ${LLM_API_URL_DOCKER:-http://ollama:11434}
+      CHROMA_PATH: /app/chroma_db
       PORT: "8765"
     ports:
       - "8765:8765"
     volumes:
       - ./logs:/app/logs
+      - chroma_data:/app/chroma_db
     healthcheck:
       test:
         - "CMD"
@@ -58,3 +69,4 @@ services:
 
 volumes:
   ollama_data:
+  chroma_data:

@@ -14,13 +14,13 @@ import rag
 
 def main() -> None:
     try:
-        chunks = rag.load_index()
+        collection = rag.load_index()
     except FileNotFoundError as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         sys.exit(1)
 
     print("DocAssist — assistente de documentação interna de TI (digite 'sair' para encerrar)")
-    print(f"Base carregada: {len(chunks)} trechos de documentação.\n")
+    print(f"Base carregada: {collection.count()} trechos de documentação.\n")
 
     while True:
         try:
@@ -35,7 +35,7 @@ def main() -> None:
         if not question:
             continue
 
-        result = rag.answer(question, chunks=chunks)
+        result = rag.answer(question, collection=collection)
         print(f"\n{result.answer}\n")
         if result.status == "ok":
             print(f"(status: ok | fontes: {', '.join(result.sources)} | {result.latency_seconds:.1f}s)\n")

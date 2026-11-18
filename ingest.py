@@ -1,5 +1,5 @@
-"""Lê os documentos fictícios em corpus/, divide em trechos (chunks) por seção e gera
-embeddings locais via Ollama, salvando tudo em index.json.
+"""Lê os documentos .md em corpus/ (recursivamente), divide em trechos (chunks) por seção,
+gera embeddings via API de IA e grava tudo no ChromaDB persistente (SQLite).
 
 Uso:
     python ingest.py
@@ -7,23 +7,23 @@ Uso:
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
 
+import config
+import vector_store
 from ollama_client import OllamaUnavailableError, embed
 
-CORPUS_DIR = Path(__file__).parent / "corpus"
-INDEX_PATH = Path(__file__).parent / "index.json"
-EMBEDDING_MODEL = "all-minilm"
+CORPUS_DIR = config.CORPUS_DIR
 
 HEADING_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 # O modelo de embeddings local (all-minilm) tem uma janela de contexto pequena; chunks
 # maiores que isso causam erro "input length exceeds the context length" na API do Ollama.
-# Mantemos uma margem de segurança bem abaixo do limite real do modelo.
-MAX_CHUNK_CHARS = 500
+# Mantemos uma margem de segurança bem abaixo do limite real do modelo (ver MAX_CHUNK_CHARS
+# no .env).
+MAX_CHUNK_CHARS = config.MAX_CHUNK_CHARS
 
 
 def _split_long_text(text: str, max_chars: int) -> list[str]:
@@ -107,44 +107,59 @@ def main() -> None:
         print(f"Pasta de corpus não encontrada: {CORPUS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    doc_paths = sorted(CORPUS_DIR.glob("*.md"))
+    # Busca recursiva (ex.: wikis clonadas em subpastas), ignorando pastas ocultas como .git.
+    doc_paths = sorted(
+        path
+        for path in CORPUS_DIR.rglob("*.md")
+        if not any(part.startswith(".") for part in path.relative_to(CORPUS_DIR).parts)
+    )
     if not doc_paths:
         print(f"Nenhum documento .md encontrado em {CORPUS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    records = []
+    ids: list[str] = []
+    documents: list[str] = []
+    embeddings: list[list[float]] = []
+    metadatas: list[dict] = []
     for doc_path in doc_paths:
+        source = doc_path.relative_to(CORPUS_DIR).as_posix()
         text = doc_path.read_text(encoding="utf-8")
         for heading, body in chunk_markdown(text):
             if not body:
                 continue
             full_text = f"# {doc_path.stem}\n## {heading}\n{body}"
             try:
-                vector = embed(full_text, model=EMBEDDING_MODEL)
+                vector = embed(full_text)
             except OllamaUnavailableError as exc:
                 print(f"ERRO: {exc}", file=sys.stderr)
                 print(
-                    "O Ollama precisa estar rodando localmente (comando: `ollama serve`) "
-                    "e o modelo de embeddings disponível (`ollama pull all-minilm`).",
+                    f"A API de IA precisa estar acessível em {config.LLM_API_URL} e o modelo "
+                    f"de embeddings '{config.EMBEDDING_MODEL}' disponível "
+                    f"(no Ollama: `ollama pull {config.EMBEDDING_MODEL}`).",
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            records.append(
-                {
-                    "id": len(records),
-                    "source": doc_path.name,
-                    "heading": heading,
-                    "text": body,
-                    "embedding": vector,
-                }
-            )
-        print(f"Processado: {doc_path.name} (total de chunks acumulados: {len(records)})")
+            ids.append(str(len(ids)))
+            documents.append(body)
+            embeddings.append(vector)
+            metadatas.append({"source": source, "heading": heading})
+        print(f"Processado: {source} (total de chunks acumulados: {len(ids)})")
 
-    INDEX_PATH.write_text(
-        json.dumps({"embedding_model": EMBEDDING_MODEL, "chunks": records}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    collection = vector_store.recreate_collection()
+    # Inserção em lotes para respeitar o limite de batch do Chroma em corpora grandes.
+    batch_size = 1000
+    for start in range(0, len(ids), batch_size):
+        end = start + batch_size
+        collection.add(
+            ids=ids[start:end],
+            documents=documents[start:end],
+            embeddings=embeddings[start:end],
+            metadatas=metadatas[start:end],
+        )
+    print(
+        f"\nÍndice salvo no ChromaDB ({config.CHROMA_PATH}, coleção "
+        f"'{config.CHROMA_COLLECTION}') com {len(ids)} chunks de {len(doc_paths)} documentos."
     )
-    print(f"\nÍndice salvo em {INDEX_PATH} com {len(records)} chunks de {len(doc_paths)} documentos.")
 
 
 if __name__ == "__main__":
