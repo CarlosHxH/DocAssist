@@ -73,6 +73,9 @@ def _load_doc_titles() -> dict[str, str]:
     nome legível em vez do nome de arquivo cru."""
     titles: dict[str, str] = {}
     for path in sorted(RAG_DIR.rglob("*.md")):
+        # Mesmo filtro do ingest.py: pastas ocultas (ex.: .git, wikis clonadas) ficam de fora.
+        if any(part.startswith(".") for part in path.relative_to(RAG_DIR).parts):
+            continue
         name = path.relative_to(RAG_DIR).as_posix()
         try:
             first_line = path.read_text(encoding="utf-8").splitlines()[0]

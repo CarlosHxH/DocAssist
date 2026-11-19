@@ -67,7 +67,11 @@ embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no Ch
 
 ## 4. Dados e integração
 
-rag fictício: 9 documentos Markdown em `rag/` (~59 trechos indexados). Nenhuma API
+rag fictício: 9 documentos Markdown em `rag/` (o número de trechos indexados depende de
+`MAX_CHUNK_CHARS`). Cada documento abre com um aviso de que é fictício, e os nomes de
+servidor usam o domínio de exemplo `exemplo.internal`. Subpastas ocultas de `rag/` são
+ignoradas pelo Git, pelo Docker e pela ingestão: **nunca coloque documentação institucional
+real nesta pasta** de um repositório público. Nenhuma API
 externa é usada — toda comunicação é local, entre o app Python e o serviço Ollama
 (`http://localhost:11434`), via HTTP (`urllib`, biblioteca padrão). `rag.py` mostra
 explicitamente a chamada a `embed()` e `generate()` como os dois pontos de integração com

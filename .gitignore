@@ -18,6 +18,10 @@ logs/
 index.json
 chroma_db/
 
+# rag/ só versiona a documentação fictícia; subpastas ocultas (wikis clonadas, .git)
+# podem conter documentação institucional real e nunca devem ser commitadas.
+rag/.*
+
 # Variáveis de ambiente / segredos
 .env
 

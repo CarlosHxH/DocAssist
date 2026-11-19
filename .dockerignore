@@ -1,8 +1,12 @@
+.git
 .venv
 __pycache__
 *.pyc
-logs/*.jsonl
+logs/
 web_server.log
+# Só a documentação fictícia de rag/ entra na imagem; nunca subpastas ocultas (wikis
+# clonadas, .git) com documentação institucional real.
+rag/.*
 # Regenerado sempre na primeira subida do container (docker-entrypoint.sh), para garantir
 # que o índice bata com o rag/ que foi de fato incluído nesta imagem.
 index.json
