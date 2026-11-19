@@ -37,6 +37,11 @@ Regras obrigatórias:
 - Use somente o que está no CONTEXTO. Nunca invente informação que não esteja lá.
 - Se o CONTEXTO não tiver informação suficiente para responder, responda exatamente:
   "{no_context}"
+- Formate a resposta em Markdown: listas para passos e itens, **negrito** para termos \
+importantes e `crase` para nomes de branch, arquivos, comandos e variáveis.
+- Quando o CONTEXTO trouxer exemplos (comandos, nomes, trechos de código ou de \
+configuração), inclua-os na resposta exatamente como aparecem no CONTEXTO; exemplos com \
+mais de uma linha vão em bloco de código (```linguagem).
 - Ao final da resposta, cite entre colchetes o(s) documento(s) de origem usados, no \
 formato [fonte: nome-do-documento.md].
 """.format(no_context=NO_CONTEXT_MESSAGE)

@@ -165,8 +165,182 @@ function cleanAnswerText(text) {
   return text.replace(/\[\s*fonte\s*:[^\]]*\]/gi, "").trim();
 }
 
-function formatInlineCode(escapedText) {
-  return escapedText.replace(/`([^`]+)`/g, "<code>$1</code>");
+// ---------- markdown ----------
+// Renderizador mínimo, sem dependências nem CDN: cobre o que o modelo e os documentos de
+// rag/ usam (títulos, listas aninhadas, tabelas, citações, blocos de código e formatação
+// inline). Todo texto é escapado antes de virar HTML, então a resposta não injeta tags.
+
+const LIST_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const FENCE_RE = /^\s*(```|~~~)\s*([\w+#.-]*)\s*$/;
+const HR_RE = /^\s*([-*_])(\s*\1){2,}\s*$/;
+const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+const TABLE_SEP_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+
+function renderInline(text) {
+  // Código inline é separado antes, para que nada dentro dele vire negrito/link.
+  const codes = [];
+  let out = text.replace(/`([^`]+)`/g, (_, code) => {
+    codes.push(code);
+    return `\u0000${codes.length - 1}\u0000`;
+  });
+  out = escapeHtml(out)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*\*(?!\s)([^\n]+?(?:\n[^\n]+?)?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^\w])__(?!\s)(.+?)__(?!\w)/g, "$1<strong>$2</strong>")
+    .replace(/(^|[^*\w])\*(?![\s*])(.+?)\*(?!\w)/g, "$1<em>$2</em>")
+    .replace(/(^|[^\w])_(?![\s_])(.+?)_(?!\w)/g, "$1<em>$2</em>")
+    .replace(/~~(.+?)~~/g, "<del>$1</del>");
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${escapeHtml(codes[i])}</code>`);
+}
+
+function codeBlockHtml(code, lang) {
+  const label = lang ? escapeHtml(lang) : "exemplo";
+  return (
+    `<div class="code-block"><div class="code-head"><span>${label}</span>` +
+    `<button type="button" class="code-copy">Copiar</button></div>` +
+    `<pre><code>${escapeHtml(code)}</code></pre></div>`
+  );
+}
+
+function leadingSpaces(line) {
+  return line.match(/^\s*/)[0].length;
+}
+
+function dedent(lines) {
+  const indent = Math.min(...lines.filter((l) => l.trim()).map(leadingSpaces));
+  return lines.map((l) => l.slice(Math.min(indent, leadingSpaces(l))));
+}
+
+function splitRow(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function renderTable(lines, start) {
+  const header = splitRow(lines[start]);
+  const aligns = splitRow(lines[start + 1]).map((cell) =>
+    cell.startsWith(":") && cell.endsWith(":") ? "center" : cell.endsWith(":") ? "right" : ""
+  );
+  const cell = (tag, text, col) =>
+    `<${tag}${aligns[col] ? ` style="text-align:${aligns[col]}"` : ""}>${renderInline(text || "")}</${tag}>`;
+  let i = start + 2;
+  const rows = [];
+  while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+    rows.push(`<tr>${header.map((_, col) => cell("td", splitRow(lines[i])[col], col)).join("")}</tr>`);
+    i++;
+  }
+  const head = `<tr>${header.map((text, col) => cell("th", text, col)).join("")}</tr>`;
+  return [`<div class="table-wrap"><table><thead>${head}</thead><tbody>${rows.join("")}</tbody></table></div>`, i];
+}
+
+function renderList(lines, start) {
+  const first = lines[start].match(LIST_RE);
+  const indent = first[1].length;
+  const ordered = /\d/.test(first[2]);
+  const items = [];
+  let i = start;
+  while (i < lines.length) {
+    const line = lines[i];
+    const m = line.match(LIST_RE);
+    if (m && m[1].length === indent && /\d/.test(m[2]) === ordered) {
+      items.push({ text: m[3], children: [] });
+    } else if (line.trim() && leadingSpaces(line) > indent) {
+      items[items.length - 1].children.push(line); // sublista ou continuação do item
+    } else if (!line.trim()) {
+      // Linha em branco só continua a lista se o próximo item ainda pertencer a ela.
+      const next = lines[i + 1] || "";
+      const nm = next.match(LIST_RE);
+      if (!(nm && nm[1].length >= indent) && !(next.trim() && leadingSpaces(next) > indent)) break;
+    } else {
+      break;
+    }
+    i++;
+  }
+  const tag = ordered ? "ol" : "ul";
+  const startAttr = ordered && parseInt(first[2], 10) !== 1 ? ` start="${parseInt(first[2], 10)}"` : "";
+  const body = items
+    .map((item) => `<li>${renderInline(item.text)}${item.children.length ? renderBlocks(dedent(item.children)) : ""}</li>`)
+    .join("");
+  return [`<${tag}${startAttr}>${body}</${tag}>`, i];
+}
+
+function isBlockStart(lines, i) {
+  const line = lines[i];
+  return (
+    FENCE_RE.test(line) || HEADING_RE.test(line) || HR_RE.test(line) || /^\s*>/.test(line) ||
+    LIST_RE.test(line) || (line.includes("|") && TABLE_SEP_RE.test(lines[i + 1] || ""))
+  );
+}
+
+function renderBlocks(lines) {
+  const html = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+
+    const fence = line.match(FENCE_RE);
+    if (fence) {
+      const body = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith(fence[1])) body.push(lines[i++]);
+      i++; // pula o fechamento (ou o fim do texto, se o modelo não fechou o bloco)
+      html.push(codeBlockHtml(dedent(body).join("\n"), fence[2]));
+      continue;
+    }
+
+    const heading = line.match(HEADING_RE);
+    if (heading) {
+      // Dentro de uma mensagem, "#" vira h3: os títulos não competem com os da página.
+      const level = Math.min(heading[1].length + 2, 6);
+      html.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    if (HR_RE.test(line)) {
+      html.push("<hr>");
+      i++;
+      continue;
+    }
+
+    if (/^\s*>/.test(line)) {
+      const quoted = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) quoted.push(lines[i++].replace(/^\s*>\s?/, ""));
+      html.push(`<blockquote>${renderBlocks(quoted)}</blockquote>`);
+      continue;
+    }
+
+    if (line.includes("|") && TABLE_SEP_RE.test(lines[i + 1] || "")) {
+      const [table, next] = renderTable(lines, i);
+      html.push(table);
+      i = next;
+      continue;
+    }
+
+    if (LIST_RE.test(line)) {
+      const [list, next] = renderList(lines, i);
+      html.push(list);
+      i = next;
+      continue;
+    }
+
+    // Parágrafo: quebras de linha simples são mantidas, como o modelo as escreveu.
+    // O parágrafo é renderizado inteiro, para que um **negrito** possa atravessar a quebra.
+    const para = [];
+    while (i < lines.length && lines[i].trim() && (para.length === 0 || !isBlockStart(lines, i))) {
+      para.push(lines[i].trim());
+      i++;
+    }
+    html.push(`<p>${renderInline(para.join("\n")).replace(/\n/g, "<br>")}</p>`);
+  }
+  return html.join("");
+}
+
+function renderMarkdown(text) {
+  return renderBlocks(text.replace(/\r\n?/g, "\n").split("\n"));
 }
 
 // ---------- renderização ----------
@@ -193,8 +367,8 @@ function renderMessage(entry) {
     content.className = "text error";
     content.textContent = cleaned;
   } else {
-    content.className = "text";
-    content.innerHTML = formatInlineCode(escapeHtml(cleaned));
+    content.className = "md";
+    content.innerHTML = renderMarkdown(cleaned);
   }
   article.append(content);
 
@@ -202,10 +376,11 @@ function renderMessage(entry) {
     (entry.sourcesDetail || []).forEach((source) => {
       const details = document.createElement("details");
       const summary = document.createElement("summary");
-      const pre = document.createElement("pre");
+      const body = document.createElement("div");
       summary.textContent = `Fonte recuperada · ${source.title} — ${source.heading}`;
-      pre.textContent = source.text;
-      details.append(summary, pre);
+      body.className = "md source";
+      body.innerHTML = renderMarkdown(source.text);
+      details.append(summary, body);
       article.append(details);
     });
 
@@ -213,9 +388,16 @@ function renderMessage(entry) {
     copyBtn.type = "button";
     copyBtn.className = "copy-btn";
     copyBtn.textContent = "Copiar resposta";
-    copyBtn.addEventListener("click", () => copyToClipboard(cleaned, copyBtn));
+    copyBtn.addEventListener("click", () => copyToClipboard(cleaned, copyBtn, "Resposta copiada."));
     article.append(copyBtn);
   }
+
+  // Botão "Copiar" de cada bloco de código (resposta e fontes).
+  article.querySelectorAll(".code-copy").forEach((btn) => {
+    btn.addEventListener("click", () =>
+      copyToClipboard(btn.closest(".code-block").querySelector("code").textContent, btn, "Exemplo copiado.")
+    );
+  });
 
   const meta = [];
   if (typeof entry.latency === "number") meta.push(`${entry.latency.toFixed(1)}s`);
@@ -231,7 +413,7 @@ function renderMessage(entry) {
   return article;
 }
 
-function copyToClipboard(text, btnEl) {
+function copyToClipboard(text, btnEl, successMessage) {
   if (!navigator.clipboard || !navigator.clipboard.writeText) {
     showToast("Área de transferência indisponível neste navegador.", "error");
     return;
@@ -242,9 +424,9 @@ function copyToClipboard(text, btnEl) {
       const original = btnEl.textContent;
       btnEl.textContent = "Copiado ✓";
       setTimeout(() => { btnEl.textContent = original; }, 1500);
-      showToast("Resposta copiada.", "success", 2000);
+      showToast(successMessage, "success", 2000);
     })
-    .catch(() => showToast("Não foi possível copiar a resposta.", "error"));
+    .catch(() => showToast("Não foi possível copiar.", "error"));
 }
 
 function renderAll() {
