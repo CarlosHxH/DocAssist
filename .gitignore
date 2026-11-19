@@ -16,7 +16,7 @@ logs/
 
 # Índice gerado (regenerado pelo ingest.py / docker-entrypoint.sh)
 index.json
-chroma_db/
+# chroma_db/
 
 # Variáveis de ambiente / segredos
 .env
