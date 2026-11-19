@@ -32,9 +32,9 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FORMAT=${LOG_FORMAT:-text}
       - VECTOR_STORE=${VECTOR_STORE:-chroma}
-      - CHROMA_PATH=/app/chroma_db
-      - QDRANT_URL=${QDRANT_URL:-http://qdrant.172-17-41-166.sslip.io}
-      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      # chroma: vazio usa /app/chroma_db (volume chroma_data); qdrant: URL do servidor.
+      - VECTOR_URL=${VECTOR_URL:-}
+      - VECTOR_API_KEY=${VECTOR_API_KEY:-}
       - VECTOR_COLLECTION=${VECTOR_COLLECTION:-docassist}
       - PORT=8765
     # Faz host.docker.internal resolver para o host também no Linux.

@@ -34,7 +34,7 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
                1. embed(pergunta)              → ollama_client.py → Ollama /api/embeddings
                                                    (modelo all-minilm)
                2. busca vetorial top-k (cosseno) no ChromaDB (SQLite em chroma_db/)
-                  ou no Qdrant (servidor em QDRANT_URL), conforme VECTOR_STORE
+                  ou no Qdrant (servidor), conforme VECTOR_STORE e VECTOR_URL
                3. se a melhor similaridade < limiar (0.40) → recusa responder
                4. monta prompt = instruções + trechos recuperados + pergunta
                5. generate(prompt)              → ollama_client.py → Ollama /api/generate
@@ -49,11 +49,12 @@ embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no ba
 Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver `.env.example`); ao
 trocar `EMBEDDING_MODEL` ou `VECTOR_STORE`, rode `python src/ingest.py` novamente.
 
-**Banco vetorial** (`VECTOR_STORE` no `.env`):
+**Banco vetorial** (`VECTOR_STORE` no `.env`; `VECTOR_URL` diz onde ele fica):
 
-- `chroma` (padrão): ChromaDB persistente em SQLite (`chroma_db/`), sem servidor.
-- `qdrant`: servidor Qdrant em `QDRANT_URL`, acessado pela API REST (biblioteca padrão,
-  sem dependência extra). Configure também `QDRANT_API_KEY` (header `api-key`) e
+- `chroma` (padrão): ChromaDB persistente em SQLite, sem servidor. `VECTOR_URL` é a pasta
+  do banco (padrão `chroma_db/`).
+- `qdrant`: servidor Qdrant em `VECTOR_URL` (padrão `http://localhost:6333`), acessado pela API REST (biblioteca padrão,
+  sem dependência extra). Configure também `VECTOR_API_KEY` (header `api-key`) e
   `VECTOR_COLLECTION`. O texto de cada trecho e o modelo de embeddings vão no payload dos
   pontos; se o modelo do `.env` mudar, o app pede reindexação (e o container reindexa
   sozinho na subida).

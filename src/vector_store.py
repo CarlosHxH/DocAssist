@@ -1,7 +1,7 @@
 """Acesso ao banco vetorial, escolhido por VECTOR_STORE no .env:
 
-- "chroma": ChromaDB persistente (armazenado em SQLite em CHROMA_PATH);
-- "qdrant": servidor Qdrant em QDRANT_URL, via API REST (só urllib da biblioteca padrão).
+- "chroma": ChromaDB persistente (armazenado em SQLite na pasta VECTOR_URL);
+- "qdrant": servidor Qdrant em VECTOR_URL, via API REST (só urllib da biblioteca padrão).
 
 Os embeddings são gerados por `ollama_client.embed` e passados explicitamente ao banco,
 que só armazena e busca (distância cosseno). Os dois backends expõem a mesma interface
@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 
 import config
 
@@ -37,8 +38,8 @@ class Match:
 def describe() -> str:
     """Descrição curta do banco em uso, para logs e mensagens (sem a chave de API)."""
     if config.VECTOR_STORE == "qdrant":
-        return f"Qdrant ({config.QDRANT_URL}, coleção '{config.VECTOR_COLLECTION}')"
-    return f"ChromaDB ({config.CHROMA_PATH}, coleção '{config.VECTOR_COLLECTION}')"
+        return f"Qdrant ({config.VECTOR_URL}, coleção '{config.VECTOR_COLLECTION}')"
+    return f"ChromaDB ({_chroma_path()}, coleção '{config.VECTOR_COLLECTION}')"
 
 
 # --- ChromaDB ---------------------------------------------------------------------------
@@ -76,13 +77,19 @@ class ChromaIndex:
         return (self._collection.metadata or {}).get("embedding_model")
 
 
+def _chroma_path() -> Path:
+    """VECTOR_URL é a pasta do SQLite; caminhos relativos partem da raiz do projeto."""
+    path = Path(config.VECTOR_URL)
+    return path if path.is_absolute() else config.BASE_DIR / path
+
+
 def _chroma_client():
     # Import tardio: quem usa só o Qdrant não paga o custo de carregar o chromadb.
     import chromadb
     from chromadb.config import Settings
 
     return chromadb.PersistentClient(
-        path=str(config.CHROMA_PATH), settings=Settings(anonymized_telemetry=False)
+        path=str(_chroma_path()), settings=Settings(anonymized_telemetry=False)
     )
 
 
@@ -106,7 +113,7 @@ def _chroma_open() -> ChromaIndex:
         collection = _chroma_client().get_collection(config.VECTOR_COLLECTION, embedding_function=None)
     except Exception as exc:
         raise FileNotFoundError(
-            f"Coleção '{config.VECTOR_COLLECTION}' não existe em {config.CHROMA_PATH}. "
+            f"Coleção '{config.VECTOR_COLLECTION}' não existe em {_chroma_path()}. "
             "Rode `python src/ingest.py` primeiro para gerar o índice."
         ) from exc
     return ChromaIndex(collection)
@@ -117,10 +124,10 @@ def _chroma_open() -> ChromaIndex:
 
 def _qdrant_request(method: str, path: str, payload: dict | None = None) -> dict:
     """Chama a API REST do Qdrant; devolve o JSON. HTTP 404 vira FileNotFoundError."""
-    url = f"{config.QDRANT_URL}{path}"
+    url = f"{config.VECTOR_URL}{path}"
     headers = {"Content-Type": "application/json"}
-    if config.QDRANT_API_KEY:
-        headers["api-key"] = config.QDRANT_API_KEY
+    if config.VECTOR_API_KEY:
+        headers["api-key"] = config.VECTOR_API_KEY
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -211,7 +218,7 @@ def _qdrant_open() -> QdrantIndex:
         _qdrant_request("GET", index._base)
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            f"Coleção '{config.VECTOR_COLLECTION}' não existe no Qdrant em {config.QDRANT_URL}. "
+            f"Coleção '{config.VECTOR_COLLECTION}' não existe no Qdrant em {config.VECTOR_URL}. "
             "Rode `python src/ingest.py` primeiro para gerar o índice."
         ) from exc
     return index

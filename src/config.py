@@ -39,15 +39,18 @@ GENERATION_MODEL = os.environ.get("GENERATION_MODEL", "qwen2.5:3b")
 GENERATION_TEMPERATURE = float(os.environ.get("GENERATION_TEMPERATURE", "0.1"))
 
 # --- Banco vetorial ---------------------------------------------------------------------
-# "chroma": ChromaDB persistente, armazenado em SQLite em CHROMA_PATH.
-# "qdrant": servidor Qdrant em QDRANT_URL (API REST).
+# Variáveis comuns aos dois bancos: para trocar de banco, basta mudar VECTOR_STORE (e
+# reindexar). Cada banco usa só as que fazem sentido para ele.
+# "chroma": ChromaDB persistente, armazenado em SQLite (ignora VECTOR_API_KEY).
+# "qdrant": servidor Qdrant, via API REST.
 VECTOR_STORE = os.environ.get("VECTOR_STORE", "chroma").strip().lower()
-CHROMA_PATH = _resolve_path(os.environ.get("CHROMA_PATH", "chroma_db"))
 VECTOR_COLLECTION = os.environ.get("VECTOR_COLLECTION", "docassist")
-QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333").rstrip("/")
-# Enviada no header "api-key". Deixe vazio se o Qdrant não exigir autenticação.
-QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
-VECTOR_COLLECTION = os.environ.get("VECTOR_COLLECTION", "docassist")
+# Onde fica o banco: no chroma, a pasta do SQLite (relativa à raiz do projeto ou
+# absoluta); no qdrant, a URL base do servidor. Vazio usa o padrão do banco escolhido.
+_VECTOR_URL_DEFAULTS = {"chroma": "chroma_db", "qdrant": "http://localhost:6333"}
+VECTOR_URL = (os.environ.get("VECTOR_URL") or _VECTOR_URL_DEFAULTS.get(VECTOR_STORE, "")).rstrip("/")
+# Enviada no header "api-key" do Qdrant. Deixe vazio se o servidor não exigir autenticação.
+VECTOR_API_KEY = os.environ.get("VECTOR_API_KEY", "")
 
 # --- Ingestão e recuperação -------------------------------------------------------------
 RAG_DIR = _resolve_path(os.environ.get("RAG_DIR", "rag"))
