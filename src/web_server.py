@@ -85,7 +85,15 @@ class DocAssistHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._send_body(body)
+
+    def _send_body(self, body: bytes) -> None:
+        # O navegador pode fechar a conexão antes da resposta (recarregar a página, trocar
+        # de aba); não é erro do servidor, então não deixa o traceback poluir o console.
+        try:
+            self.wfile.write(body)
+        except ConnectionError:
+            self.close_connection = True
 
     def do_GET(self) -> None:  # noqa: N802 (nome exigido pela API do http.server)
         if self.path in STATIC_FILES:
@@ -95,7 +103,7 @@ class DocAssistHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            self._send_body(body)
             return
 
         if self.path == "/api/health":
