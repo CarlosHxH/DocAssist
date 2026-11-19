@@ -44,5 +44,16 @@
     <p>Respostas geradas por IA podem conter erros. Consulte sempre as fontes recuperadas.</p>
   </footer>
 </main>
+<dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+  <form method="dialog">
+    <h3 id="confirm-title">Confirmar</h3>
+    <p id="confirm-message"></p>
+    <div class="dialog-actions">
+      <button value="cancel" class="ghost">Cancelar</button>
+      <button value="ok" id="confirm-ok" class="danger">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+<div id="toasts"></div>
 </body>
 </html>

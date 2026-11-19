@@ -6,11 +6,14 @@ const introEl = document.querySelector("#intro");
 const statusEl = document.querySelector("#status");
 const docCountEl = document.querySelector("#doc-count");
 const docNamesEl = document.querySelector("#doc-names");
+const confirmDialog = document.querySelector("#confirm-dialog");
+const toastsEl = document.querySelector("#toasts");
 
 const HISTORY_KEY = "docassist_history_v2";
 
 let history = loadHistory();
 let busy = false;
+let serverOnline = null;
 
 // ---------- armazenamento local ----------
 
@@ -30,6 +33,54 @@ function saveHistory() {
     /* armazenamento indisponível (ex. aba privada) — segue sem persistir */
   }
 }
+
+// ---------- alertas ----------
+
+function showToast(message, type = "info", duration = 3200) {
+  const toast = document.createElement("div");
+  toast.className = "toast " + type;
+  toast.setAttribute("role", type === "error" ? "alert" : "status");
+
+  const text = document.createElement("span");
+  text.textContent = message;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Fechar aviso");
+  close.textContent = "×";
+
+  toast.append(text, close);
+  toastsEl.append(toast);
+
+  let timer;
+  const dismiss = () => {
+    clearTimeout(timer);
+    toast.classList.add("leaving");
+    toast.addEventListener("animationend", () => toast.remove(), { once: true });
+  };
+  close.addEventListener("click", dismiss);
+  if (duration > 0) timer = setTimeout(dismiss, duration);
+}
+
+function showConfirm({ title = "Confirmar", message = "", confirmText = "Confirmar", cancelText = "Cancelar" } = {}) {
+  const cancelBtn = confirmDialog.querySelector("button[value=cancel]");
+  confirmDialog.querySelector("#confirm-title").textContent = title;
+  confirmDialog.querySelector("#confirm-message").textContent = message;
+  confirmDialog.querySelector("#confirm-ok").textContent = confirmText;
+  cancelBtn.textContent = cancelText;
+  confirmDialog.returnValue = "cancel";
+
+  return new Promise((resolve) => {
+    confirmDialog.addEventListener("close", () => resolve(confirmDialog.returnValue === "ok"), { once: true });
+    confirmDialog.showModal();
+    cancelBtn.focus();
+  });
+}
+
+// fecha ao clicar fora da caixa
+confirmDialog.addEventListener("click", (event) => {
+  if (event.target === confirmDialog) confirmDialog.close("cancel");
+});
 
 // ---------- texto ----------
 
@@ -104,15 +155,19 @@ function renderMessage(entry) {
 }
 
 function copyToClipboard(text, btnEl) {
-  if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    showToast("Área de transferência indisponível neste navegador.", "error");
+    return;
+  }
   navigator.clipboard
     .writeText(text)
     .then(() => {
       const original = btnEl.textContent;
       btnEl.textContent = "Copiado ✓";
       setTimeout(() => { btnEl.textContent = original; }, 1500);
+      showToast("Resposta copiada.", "success", 2000);
     })
-    .catch(() => {});
+    .catch(() => showToast("Não foi possível copiar a resposta.", "error"));
 }
 
 function renderAll() {
@@ -150,10 +205,14 @@ async function refreshStatus() {
       (s.ready ? "● Modelo disponível" : "○ Modelo indisponível") +
       `\n${s.generation_model} · CPU\n${s.docs} documentos · ${s.chunks} trechos`;
     docCountEl.textContent = `${s.docs} documentos`;
-    docNamesEl.textContent = (s.doc_titles || s.doc_names || []).join(" · ");
+    // docNamesEl.textContent = (s.doc_titles || s.doc_names || []).join(" · ");
+    if (serverOnline === false) showToast("Conexão com o servidor restabelecida.", "success");
+    serverOnline = true;
   } catch (err) {
     statusEl.classList.add("offline");
     statusEl.textContent = "Servidor indisponível.";
+    if (serverOnline !== false) showToast("Servidor do DocAssist indisponível.", "error", 5000);
+    serverOnline = false;
   }
 }
 
@@ -242,12 +301,21 @@ document.querySelectorAll(".suggestions button").forEach((button) => {
   button.addEventListener("click", () => submit(button.textContent));
 });
 
-clearBtn.addEventListener("click", () => {
-  if (history.length === 0) return;
-  if (!confirm("Limpar toda a conversa?")) return;
+clearBtn.addEventListener("click", async () => {
+  if (history.length === 0) {
+    showToast("A conversa já está vazia.");
+    return;
+  }
+  const confirmed = await showConfirm({
+    title: "Nova conversa",
+    message: "Todo o histórico desta conversa será apagado. Deseja continuar?",
+    confirmText: "Limpar conversa",
+  });
+  if (!confirmed) return;
   history = [];
   saveHistory();
   renderAll();
+  showToast("Conversa limpa.", "success", 2000);
   input.focus();
 });
 
