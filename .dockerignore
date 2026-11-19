@@ -6,5 +6,5 @@ web_server.log
 # Regenerado sempre na primeira subida do container (docker-entrypoint.sh), para garantir
 # que o índice bata com o rag/ que foi de fato incluído nesta imagem.
 index.json
-# chroma_db/
+chroma_db/
 .env
