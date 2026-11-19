@@ -2,7 +2,7 @@
 gera embeddings via API de IA e grava tudo no ChromaDB persistente (SQLite).
 
 Uso:
-    python ingest.py
+    python src/ingest.py
 """
 
 from __future__ import annotations

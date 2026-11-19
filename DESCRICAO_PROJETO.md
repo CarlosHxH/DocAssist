@@ -35,7 +35,7 @@ Pipeline RAG local: `ingest.py` converte os documentos fictícios de `corpus/` e
 vetorial (`index.json`, via embeddings do Ollama); `rag.py` faz a busca por similaridade de
 cosseno, decide se há contexto suficiente (limiar calibrado em 0.40) e gera a resposta
 final via LLM local; `app.py` é a interface de linha de comando e `web_server.py` +
-`static/index.html` formam o site de chat (servidor HTTP da biblioteca padrão, sem
+`src/static/index.html` formam o site de chat (servidor HTTP da biblioteca padrão, sem
 Flask/FastAPI); `eval.py` mede a qualidade do sistema contra um gabarito. Ver diagrama
 completo e detalhes em `README.md`.
 

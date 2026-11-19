@@ -3,19 +3,19 @@ e gera um relatório de validação (requisito 06 do edital: cenários de teste 
 e requisito 01: critério observável de sucesso).
 
 Uso:
-    python eval.py
+    python src/eval.py
 """
 
 from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 
+import config
 import rag
 
-QUESTIONS_PATH = Path(__file__).parent / "eval_questions.json"
-REPORT_PATH = Path(__file__).parent / "tests" / "relatorio_avaliacao.md"
+QUESTIONS_PATH = config.BASE_DIR / "tests" / "eval_questions.json"
+REPORT_PATH = config.BASE_DIR / "tests" / "relatorio_avaliacao.md"
 SUCCESS_THRESHOLD = 0.80  # critério de sucesso do requisito 01: >= 80% de acerto
 
 

@@ -11,7 +11,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).parent
+# Raiz do projeto (um nível acima de src/): .env, corpus/ e chroma_db/ ficam lá.
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env", override=False)
 

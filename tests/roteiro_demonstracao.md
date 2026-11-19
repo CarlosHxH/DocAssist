@@ -11,8 +11,8 @@ centraliza isso num assistente de perguntas e respostas.
 ## 2. Fluxo completo funcionando
 
 ```
-python ingest.py      # gera index.json a partir de corpus/ (uma vez)
-python app.py          # abre a CLI interativa
+python src/ingest.py      # gera index.json a partir de corpus/ (uma vez)
+python src/app.py          # abre a CLI interativa
 Pergunta> Qual o padrão de nome para uma branch de hotfix?
 ```
 

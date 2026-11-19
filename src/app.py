@@ -2,7 +2,7 @@
 (documentação fictícia em corpus/) e receba uma resposta grounded, com citação da fonte.
 
 Uso:
-    python app.py
+    python src/app.py
 """
 
 from __future__ import annotations

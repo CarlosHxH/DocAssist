@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import chromadb
 
@@ -17,7 +16,7 @@ import config
 import vector_store
 from ollama_client import OllamaUnavailableError, embed, generate
 
-LOG_PATH = Path(__file__).parent / "logs" / "interactions.jsonl"
+LOG_PATH = config.BASE_DIR / "logs" / "interactions.jsonl"
 
 TOP_K = config.TOP_K
 # Abaixo deste score de similaridade de cosseno, consideramos que não há contexto

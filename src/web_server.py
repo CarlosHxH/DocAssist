@@ -4,7 +4,7 @@ uma API JSON simples, reaproveitando o mesmo pipeline RAG de app.py/rag.py.
 Usa o http.server da biblioteca padrão do Python (sem Flask/FastAPI).
 
 Uso:
-    python web_server.py [--host 127.0.0.1] [--port 8765]
+    python src/web_server.py [--host 127.0.0.1] [--port 8765]
 """
 
 from __future__ import annotations

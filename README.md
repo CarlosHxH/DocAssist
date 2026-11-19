@@ -20,7 +20,7 @@ de branch de hotfix?", "como funciona o deploy em produção?"). O DocAssist cen
 respostas num assistente de perguntas e respostas que sempre cita a fonte.
 
 **Critério de sucesso observável:** em um conjunto de teste de 20 perguntas
-(`eval_questions.json`, 15 dentro do escopo + 5 fora do escopo/casos-limite), o assistente
+(`tests/eval_questions.json`, 15 dentro do escopo + 5 fora do escopo/casos-limite), o assistente
 deve responder corretamente e citar a fonte certa em pelo menos 80% dos casos, e recusar
 responder (sem alucinar) quando a pergunta está fora do escopo da base. Rode `python
 eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao.md`.
@@ -46,7 +46,7 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
 seção (e subdivide seções longas, respeitando o limite de contexto do modelo de
 embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no ChromaDB (SQLite em
 `chroma_db/`). Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver
-`.env.example`); ao trocar `EMBEDDING_MODEL`, rode `python ingest.py` novamente.
+`.env.example`); ao trocar `EMBEDDING_MODEL`, rode `python src/ingest.py` novamente.
 
 ## 3. Uso efetivo de IA
 
@@ -62,7 +62,7 @@ embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no Ch
   2. Limiar de similaridade de cosseno (0.40, calibrado empiricamente — ver
      `tests/calibracao_limiar.md`) — abaixo dele, o sistema recusa responder em vez de
      arriscar alucinação.
-  3. Conjunto de avaliação com gabarito (`eval_questions.json` + `eval.py`), medindo
+  3. Conjunto de avaliação com gabarito (`tests/eval_questions.json` + `eval.py`), medindo
      acerto contra a fonte esperada.
 
 ## 4. Dados e integração
@@ -92,20 +92,20 @@ o recurso de IA.
 cd docassist
 
 # 1. Gera o índice vetorial a partir de corpus/ (roda uma vez, ou de novo se o corpus mudar)
-python ingest.py
+python src/ingest.py
 
 # 2a. Roda o assistente via linha de comando
-python app.py
+python src/app.py
 
 # 2b. Ou roda o site de chat (abre em http://127.0.0.1:8765)
-python web_server.py
+python src/web_server.py
 ```
 
 Exemplo de pergunta: `Qual o padrão de nome para uma branch de hotfix?`
 
 ### Site de chat (web_server.py)
 
-Interface web (`static/index.html` + `static/style.css` + `static/app.js`, sem build step
+Interface web (`src/static/index.html` + `src/static/style.css` + `src/static/app.js`, sem build step
 nem CDN) servida por um servidor HTTP próprio (`web_server.py`, biblioteca padrão do
 Python — sem Flask/FastAPI), reaproveitando o mesmo `rag.py` usado pela CLI. O visual segue
 o mesmo estilo editorial de outro projeto de referência (`mini-chat-rag`): barra lateral
@@ -125,7 +125,7 @@ interface web são gravadas no mesmo `logs/interactions.jsonl` usado pela CLI.
 ### Rodar a avaliação automatizada
 
 ```bash
-python eval.py
+python src/eval.py
 ```
 
 Gera `tests/relatorio_avaliacao.md` com o resultado linha a linha e o percentual de
@@ -136,7 +136,7 @@ acerto comparado ao critério de sucesso (80%).
 Documentados e com evidência em `tests/`:
 
 1. **Funcionamento esperado** — pergunta cuja resposta está no corpus → resposta correta
-   com citação da fonte certa. Ex.: perguntas #1-15 de `eval_questions.json`.
+   com citação da fonte certa. Ex.: perguntas #1-15 de `tests/eval_questions.json`.
 2. **Caso-limite / entrada inválida** — pergunta fora do escopo do corpus, vazia ou vaga
    (perguntas #16-20) → o sistema reconhece a ausência de contexto relevante e recusa
    responder, sem alucinar.
@@ -183,20 +183,21 @@ linguagem natural compreensível, nunca um stacktrace cru.
 ```
 docassist/
   corpus/                  documentação fictícia (.md) usada como base de conhecimento
-  ollama_client.py         cliente HTTP mínimo para a API local do Ollama
-  config.py                configuração lida do .env (API, modelos, ChromaDB)
-  vector_store.py          acesso ao ChromaDB persistente
-  ingest.py                chunking + geração de embeddings + ChromaDB
-  rag.py                   núcleo do pipeline RAG (retrieval + geração + logging)
-  app.py                   interface de linha de comando
-  web_server.py            servidor HTTP do site de chat (stdlib, sem Flask/FastAPI)
-  static/index.html        site de chat — estrutura (sem build step)
-  static/style.css         site de chat — estilo
-  static/app.js            site de chat — lógica (fetch, histórico, status)
-  eval.py                  roda eval_questions.json e gera o relatório de validação
-  eval_questions.json      conjunto de perguntas de teste com gabarito
+  src/                     código-fonte (rode os scripts a partir da raiz: `python src/<script>.py`)
+    config.py              configuração lida do .env (API, modelos, ChromaDB)
+    ollama_client.py       cliente HTTP mínimo para a API local do Ollama
+    vector_store.py        acesso ao ChromaDB persistente
+    ingest.py              chunking + geração de embeddings + ChromaDB
+    rag.py                 núcleo do pipeline RAG (retrieval + geração + logging)
+    app.py                 interface de linha de comando
+    web_server.py          servidor HTTP do site de chat (stdlib, sem Flask/FastAPI)
+    eval.py                roda tests/eval_questions.json e gera o relatório de validação
+    static/index.html      site de chat — estrutura (sem build step)
+    static/style.css       site de chat — estilo
+    static/app.js          site de chat — lógica (fetch, histórico, status)
   chroma_db/               banco vetorial ChromaDB (SQLite) gerado por ingest.py (não versionado)
   .env.example             modelo do .env (copie para .env)
   logs/interactions.jsonl  log de cada interação (observabilidade)
   tests/                   evidências dos cenários de teste e da avaliação
+  tests/eval_questions.json  conjunto de perguntas de teste com gabarito
 ```

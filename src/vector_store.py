@@ -40,17 +40,17 @@ def get_collection() -> chromadb.Collection:
     except Exception as exc:
         raise FileNotFoundError(
             f"Coleção '{config.CHROMA_COLLECTION}' não existe em {config.CHROMA_PATH}. "
-            "Rode `python ingest.py` primeiro para gerar o índice."
+            "Rode `python src/ingest.py` primeiro para gerar o índice."
         ) from exc
     if collection.count() == 0:
         raise FileNotFoundError(
-            f"Coleção '{config.CHROMA_COLLECTION}' está vazia. Rode `python ingest.py`."
+            f"Coleção '{config.CHROMA_COLLECTION}' está vazia. Rode `python src/ingest.py`."
         )
     indexed_model = (collection.metadata or {}).get("embedding_model")
     if indexed_model and indexed_model != config.EMBEDDING_MODEL:
         raise FileNotFoundError(
             f"O índice foi gerado com o modelo de embeddings '{indexed_model}', mas o .env "
-            f"configura '{config.EMBEDDING_MODEL}'. Rode `python ingest.py` para reindexar."
+            f"configura '{config.EMBEDDING_MODEL}'. Rode `python src/ingest.py` para reindexar."
         )
     return collection
 
