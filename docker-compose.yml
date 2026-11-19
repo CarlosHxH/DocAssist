@@ -1,56 +1,24 @@
+# Ambiente padrão: sobe apenas o DocAssist, usando uma API de IA externa ao compose
+# (Ollama rodando no host, OpenAI, LM Studio, vLLM...).
+#   docker compose up -d --build
+# Para subir também um Ollama em container, use o ambiente local:
+#   docker compose -f docker-compose.local.yml up -d --build
 services:
-  ollama:
-    image: ollama/ollama:latest
-    profiles: ["local"]
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    # Para usar GPU NVIDIA (opcional — requer o NVIDIA Container Toolkit no host),
-    # descomente o bloco abaixo:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-
-  # Serviço que roda uma vez, baixa os dois modelos usados pelo DocAssist e encerra.
-  # O `app` só inicia depois que este passo termina com sucesso (ver depends_on abaixo).
-  ollama-pull:
-    image: ollama/ollama:latest
-    profiles: ["local"]
-    depends_on:
-      ollama:
-        condition: service_healthy
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-minilm}
-      GENERATION_MODEL: ${GENERATION_MODEL:-qwen2.5:3b}
-    entrypoint: ["sh", "-c", "ollama pull $${EMBEDDING_MODEL:-all-minilm} && ollama pull $${GENERATION_MODEL:-qwen2.5:3b}"]
-    restart: "no"
-
   app:
     build: .
-    depends_on:
-      ollama-pull:
-        condition: service_completed_successfully
-    # Modelos, provedor, chave etc. vêm do .env; a URL da API aponta para o container
-    # do Ollama, a menos que LLM_API_URL_DOCKER seja definida.
+    # Provedor, URL, chave e modelos vêm do .env. Se LLM_API_URL apontar para localhost
+    # (ex.: Ollama no host), defina LLM_API_URL_DOCKER=http://host.docker.internal:11434,
+    # pois localhost dentro do container é o próprio container.
     env_file:
       - path: .env
         required: false
     environment:
-      LLM_API_URL: ${LLM_API_URL_DOCKER:-http://ollama:11434}
+      LLM_API_URL: ${LLM_API_URL_DOCKER:-${LLM_API_URL:-http://host.docker.internal:11434}}
       CHROMA_PATH: /app/chroma_db
       PORT: "8765"
+    # Faz host.docker.internal resolver para o host também no Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8765:8765"
     volumes:
@@ -68,5 +36,4 @@ services:
       start_period: 20s
 
 volumes:
-  ollama_data:
   chroma_data:

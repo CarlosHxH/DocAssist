@@ -149,7 +149,7 @@ async function refreshStatus() {
     statusEl.textContent =
       (s.ready ? "● Modelo disponível" : "○ Modelo indisponível") +
       `\n${s.generation_model} · CPU\n${s.docs} documentos · ${s.chunks} trechos`;
-    docCountEl.textContent = `${s.docs} documentos fictícios`;
+    docCountEl.textContent = `${s.docs} documentos`;
     docNamesEl.textContent = (s.doc_titles || s.doc_names || []).join(" · ");
   } catch (err) {
     statusEl.classList.add("offline");
@@ -203,7 +203,7 @@ async function submit(question) {
     typingEl.remove();
     const failEntry = {
       role: "assistant",
-      text: "Não foi possível falar com o servidor local do DocAssist. Verifique se `python web_server.py` está rodando.",
+      text: "Não foi possível falar com o servidor do DocAssist. Verifique se `python web_server.py` está rodando.",
       status: "erro",
     };
     history.push(failEntry);

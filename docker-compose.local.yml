@@ -1,0 +1,63 @@
+# Ambiente 100% local: DocAssist + Ollama em container, com download automático dos modelos.
+#   docker compose -f docker-compose.local.yml up -d --build
+# Usa um nome de projeto próprio para não misturar containers e volumes (o índice do
+# ChromaDB depende do modelo de embeddings) com o ambiente padrão (docker-compose.yml).
+name: docassist-local
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    # Para usar GPU NVIDIA (opcional — requer o NVIDIA Container Toolkit no host),
+    # descomente o bloco abaixo:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Serviço que roda uma vez, baixa os dois modelos usados pelo DocAssist e encerra.
+  # O `app` só inicia depois que este passo termina com sucesso (ver depends_on abaixo).
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    # Modelos próprios deste ambiente (OLLAMA_*), independentes dos do .env, que pode
+    # estar configurado para outra API (ex.: vLLM/OpenAI) com modelos inexistentes no Ollama.
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-all-minilm}
+      GENERATION_MODEL: ${OLLAMA_GENERATION_MODEL:-qwen2.5:3b}
+    entrypoint: ["sh", "-c", "ollama pull $${EMBEDDING_MODEL} && ollama pull $${GENERATION_MODEL}"]
+    restart: "no"
+
+  # Mesma definição do docker-compose.yml, mas sempre apontando para o Ollama do compose.
+  app:
+    extends:
+      file: docker-compose.yml
+      service: app
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    environment:
+      LLM_PROVIDER: ollama
+      LLM_API_URL: http://ollama:11434
+      LLM_API_KEY: ""
+      EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-all-minilm}
+      GENERATION_MODEL: ${OLLAMA_GENERATION_MODEL:-qwen2.5:3b}
+
+volumes:
+  ollama_data:
+  chroma_data:
