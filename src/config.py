@@ -49,3 +49,12 @@ RAG_DIR = _resolve_path(os.environ.get("RAG_DIR", "rag"))
 MAX_CHUNK_CHARS = int(os.environ.get("MAX_CHUNK_CHARS", "500"))
 TOP_K = int(os.environ.get("TOP_K", "4"))
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.40"))
+
+# --- Logs -------------------------------------------------------------------------------
+LOG_DIR = _resolve_path(os.environ.get("LOG_DIR", "logs"))
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
+# Formato do console: "text" (legível) ou "json" (para coletores de log de container).
+# O arquivo logs/docassist.log é sempre JSON.
+LOG_FORMAT = os.environ.get("LOG_FORMAT", "text").strip().lower()
+LOG_MAX_BYTES = int(os.environ.get("LOG_MAX_BYTES", str(5 * 1024 * 1024)))
+LOG_BACKUP_COUNT = int(os.environ.get("LOG_BACKUP_COUNT", "5"))

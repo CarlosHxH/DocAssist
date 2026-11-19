@@ -7,16 +7,19 @@ lógica, e para que os testes de cenário (ver tests/) possam chamar `answer()` 
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import chromadb
 
 import config
+import log_setup
 import vector_store
 from ollama_client import OllamaUnavailableError, embed, generate
 
-LOG_PATH = config.BASE_DIR / "logs" / "interactions.jsonl"
+logger = logging.getLogger("docassist.rag")
 
 TOP_K = config.TOP_K
 # Abaixo deste score de similaridade de cosseno, consideramos que não há contexto
@@ -57,6 +60,8 @@ class AnswerResult:
     sources: list[str] = field(default_factory=list)
     retrieved: list[RetrievedChunk] = field(default_factory=list)
     latency_seconds: float = 0.0
+    # Tempo (s) de cada etapa executada: "embedding", "retrieval", "generation".
+    timings: dict[str, float] = field(default_factory=dict)
     error: str | None = None
 
 
@@ -93,80 +98,126 @@ def _build_prompt(question: str, retrieved: list[RetrievedChunk]) -> str:
     return f"{SYSTEM_INSTRUCTIONS}\n\nCONTEXTO:\n{context}\n\nPERGUNTA: {question}\n\nRESPOSTA:"
 
 
-def _log_interaction(result: AnswerResult) -> None:
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+def _log_interaction(result: AnswerResult, channel: str | None) -> None:
+    best_score = result.retrieved[0].score if result.retrieved else None
     entry = {
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "request_id": log_setup.request_id_var.get(),
+        "channel": channel,
         "question": result.question,
         "status": result.status,
         "answer": result.answer,
         "sources": result.sources,
+        "retrieved": [{"source": c.source, "heading": c.heading, "score": round(c.score, 4)} for c in result.retrieved],
         "retrieved_scores": [round(c.score, 4) for c in result.retrieved],
+        "best_score": round(best_score, 4) if best_score is not None else None,
+        "similarity_threshold": SIMILARITY_THRESHOLD,
+        "provider": config.LLM_PROVIDER,
+        "embedding_model": config.EMBEDDING_MODEL,
+        "generation_model": config.GENERATION_MODEL,
+        "timings": {name: round(seconds, 3) for name, seconds in result.timings.items()},
         "latency_seconds": round(result.latency_seconds, 3),
         "error": result.error,
     }
-    with LOG_PATH.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        log_setup.interaction_logger().info(json.dumps(entry, ensure_ascii=False))
+    except OSError:
+        # Falha ao gravar o log (disco cheio, permissão) não pode impedir a resposta.
+        logger.exception("Não foi possível gravar a interação em interactions.jsonl")
+
+    log = logger.warning if result.status == "erro" else logger.info
+    log(
+        "Pergunta respondida: status=%s latência=%.2fs melhor_score=%s",
+        result.status, result.latency_seconds, entry["best_score"],
+        extra={"channel": channel, "status": result.status, "error": result.error},
+    )
 
 
-def answer(question: str, collection: chromadb.Collection | None = None) -> AnswerResult:
+def answer(
+    question: str, collection: chromadb.Collection | None = None, channel: str | None = None
+) -> AnswerResult:
+    """Responde `question`. `channel` ("cli", "web", "eval") só identifica a origem no log."""
     start = time.monotonic()
+    timings: dict[str, float] = {}
     question = (question or "").strip()
 
-    if not question:
-        result = AnswerResult(
-            question=question,
-            answer="Pergunta vazia. Digite uma pergunta sobre os padrões internos de TI.",
-            status="sem_contexto",
-            latency_seconds=time.monotonic() - start,
-        )
-        _log_interaction(result)
+    def finish(result: AnswerResult) -> AnswerResult:
+        result.latency_seconds = time.monotonic() - start
+        result.timings = timings
+        _log_interaction(result, channel)
         return result
+
+    if not question:
+        return finish(
+            AnswerResult(
+                question=question,
+                answer="Pergunta vazia. Digite uma pergunta sobre os padrões internos de TI.",
+                status="sem_contexto",
+            )
+        )
 
     if collection is None:
         collection = load_index()
 
     try:
+        step = time.monotonic()
         question_embedding = embed(question)
+        timings["embedding"] = time.monotonic() - step
+
+        step = time.monotonic()
         retrieved = retrieve(question_embedding, collection)
+        timings["retrieval"] = time.monotonic() - step
         best_score = retrieved[0].score if retrieved else 0.0
 
         if not retrieved or best_score < SIMILARITY_THRESHOLD:
-            result = AnswerResult(
-                question=question,
-                answer=NO_CONTEXT_MESSAGE,
-                status="sem_contexto",
-                retrieved=retrieved,
-                latency_seconds=time.monotonic() - start,
+            return finish(
+                AnswerResult(
+                    question=question,
+                    answer=NO_CONTEXT_MESSAGE,
+                    status="sem_contexto",
+                    retrieved=retrieved,
+                )
             )
-            _log_interaction(result)
-            return result
 
         prompt = _build_prompt(question, retrieved)
+        step = time.monotonic()
         raw_answer = generate(prompt)
+        timings["generation"] = time.monotonic() - step
         sources = sorted({chunk.source for chunk in retrieved if chunk.score >= SIMILARITY_THRESHOLD})
 
-        result = AnswerResult(
-            question=question,
-            answer=raw_answer,
-            status="ok",
-            sources=sources,
-            retrieved=retrieved,
-            latency_seconds=time.monotonic() - start,
+        return finish(
+            AnswerResult(
+                question=question,
+                answer=raw_answer,
+                status="ok",
+                sources=sources,
+                retrieved=retrieved,
+            )
         )
-        _log_interaction(result)
-        return result
 
     except OllamaUnavailableError as exc:
-        result = AnswerResult(
-            question=question,
-            answer=(
-                "O serviço de IA não está disponível no momento. "
-                "Verifique se a API configurada no .env está acessível e tente novamente."
-            ),
-            status="erro",
-            latency_seconds=time.monotonic() - start,
-            error=str(exc),
+        return finish(
+            AnswerResult(
+                question=question,
+                answer=(
+                    "O serviço de IA não está disponível no momento. "
+                    "Verifique se a API configurada no .env está acessível e tente novamente."
+                ),
+                status="erro",
+                error=str(exc),
+            )
         )
-        _log_interaction(result)
-        return result
+
+    except Exception as exc:
+        # Falha inesperada (ex.: ChromaDB): registra a interação e o traceback, e deixa a
+        # exceção subir para a interface decidir como responder.
+        logger.exception("Erro inesperado no pipeline RAG")
+        finish(
+            AnswerResult(
+                question=question,
+                answer="",
+                status="erro",
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        )
+        raise

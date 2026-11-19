@@ -7,10 +7,14 @@ Usa só urllib da biblioteca padrão. Provedor, URL, chave e modelos vêm de `co
 from __future__ import annotations
 
 import json
+import logging
+import time
 import urllib.error
 import urllib.request
 
 import config
+
+logger = logging.getLogger("docassist.llm")
 
 
 class OllamaUnavailableError(RuntimeError):
@@ -28,15 +32,42 @@ def _post(path: str, payload: dict) -> dict:
     url = f"{config.LLM_API_URL}{path}"
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers=_headers(), method="POST")
+    log_fields = {"llm_url": url, "llm_model": payload.get("model")}
+    start = time.monotonic()
     try:
         with urllib.request.urlopen(request, timeout=config.REQUEST_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # O corpo do erro costuma trazer o motivo real (ex.: "model not found").
+        detail = exc.read().decode("utf-8", errors="replace")[:500]
+        logger.warning(
+            "API de IA respondeu HTTP %s em %s: %s", exc.code, path, detail,
+            extra={**log_fields, "http_status": exc.code, "duration_seconds": round(time.monotonic() - start, 3)},
+        )
+        raise OllamaUnavailableError(f"API de IA em {url} respondeu HTTP {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
+        logger.warning(
+            "Falha ao conectar à API de IA em %s: %s", path, exc.reason,
+            extra={**log_fields, "duration_seconds": round(time.monotonic() - start, 3)},
+        )
         raise OllamaUnavailableError(
             f"Não foi possível falar com a API de IA em {url}: {exc}"
         ) from exc
     except TimeoutError as exc:
+        logger.warning(
+            "Timeout após %.0fs chamando a API de IA em %s", config.REQUEST_TIMEOUT_SECONDS, path,
+            extra={**log_fields, "duration_seconds": round(time.monotonic() - start, 3)},
+        )
         raise OllamaUnavailableError(f"Timeout ao chamar a API de IA em {url}") from exc
+    except json.JSONDecodeError as exc:
+        logger.warning("API de IA devolveu JSON inválido em %s", path, extra=log_fields)
+        raise OllamaUnavailableError(f"Resposta inválida (não-JSON) da API de IA em {url}") from exc
+
+    logger.debug(
+        "Chamada à API de IA %s concluída em %.2fs", path, time.monotonic() - start,
+        extra={**log_fields, "duration_seconds": round(time.monotonic() - start, 3)},
+    )
+    return result
 
 
 def is_available(timeout_seconds: float = 2.0) -> bool:
@@ -46,7 +77,9 @@ def is_available(timeout_seconds: float = 2.0) -> bool:
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             return response.status == 200
-    except (urllib.error.URLError, TimeoutError, OSError):
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        # DEBUG: a UI consulta o status a cada 30s; a mudança de estado é logada no servidor.
+        logger.debug("Health check da API de IA falhou: %s", exc)
         return False
 
 

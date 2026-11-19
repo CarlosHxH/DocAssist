@@ -7,13 +7,18 @@ Uso:
 
 from __future__ import annotations
 
+import logging
 import re
 import sys
+import time
 from pathlib import Path
 
 import config
+import log_setup
 import vector_store
 from ollama_client import OllamaUnavailableError, embed
+
+logger = logging.getLogger("docassist.ingest")
 
 RAG_DIR = config.RAG_DIR
 
@@ -103,7 +108,10 @@ def chunk_markdown(text: str) -> list[tuple[str, str]]:
 
 
 def main() -> None:
+    log_setup.setup_logging(console=False)
+    started = time.monotonic()
     if not RAG_DIR.exists():
+        logger.error("Pasta de rag não encontrada: %s", RAG_DIR)
         print(f"Pasta de rag não encontrada: {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
@@ -114,6 +122,7 @@ def main() -> None:
         if not any(part.startswith(".") for part in path.relative_to(RAG_DIR).parts)
     )
     if not doc_paths:
+        logger.error("Nenhum documento .md encontrado em %s", RAG_DIR)
         print(f"Nenhum documento .md encontrado em {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
@@ -131,6 +140,7 @@ def main() -> None:
             try:
                 vector = embed(full_text)
             except OllamaUnavailableError as exc:
+                logger.error("Ingestão interrompida em %s / %s: %s", source, heading, exc)
                 print(f"ERRO: {exc}", file=sys.stderr)
                 print(
                     f"A API de IA precisa estar acessível em {config.LLM_API_URL} e o modelo "
@@ -156,6 +166,10 @@ def main() -> None:
             embeddings=embeddings[start:end],
             metadatas=metadatas[start:end],
         )
+    logger.info(
+        "Ingestão concluída: %d chunks de %d documentos em %.1fs (embedding=%s, coleção=%s)",
+        len(ids), len(doc_paths), time.monotonic() - started, config.EMBEDDING_MODEL, config.CHROMA_COLLECTION,
+    )
     print(
         f"\nÍndice salvo no ChromaDB ({config.CHROMA_PATH}, coleção "
         f"'{config.CHROMA_COLLECTION}') com {len(ids)} chunks de {len(doc_paths)} documentos."

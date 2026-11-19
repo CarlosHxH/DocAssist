@@ -156,9 +156,24 @@ Documentados e com evidência em `tests/`:
 
 ## 8. Erros e observabilidade
 
-Cada interação é registrada em `logs/interactions.jsonl` com timestamp, pergunta, status
-(`ok` / `sem_contexto` / `erro`), fontes citadas, scores de similaridade recuperados,
-latência e mensagem de erro (quando houver). Mensagens de erro na interface são sempre em
+Os logs ficam em `logs/` (configurável por `LOG_DIR`), com rotação por tamanho
+(`LOG_MAX_BYTES`, `LOG_BACKUP_COUNT`):
+
+- `interactions.jsonl` — uma linha JSON por pergunta: timestamp com fuso, `request_id`,
+  canal (`web` / `cli` / `eval`), pergunta, status (`ok` / `sem_contexto` / `erro`),
+  resposta, fontes citadas, trechos recuperados (documento, seção e score), melhor score
+  e limiar, provedor e modelos, tempo de cada etapa (`embedding`, `retrieval`,
+  `generation`), latência total e mensagem de erro (quando houver).
+- `docassist.log` — log operacional em JSON: acesso HTTP (método, rota, status, duração),
+  configuração efetiva na inicialização (sem a chave de API), mudanças de disponibilidade
+  da API de IA, falhas da API (incluindo o corpo do erro HTTP), tracebacks de erros
+  inesperados e erros de JavaScript do navegador (enviados para `POST /api/client-log`).
+
+Cada requisição HTTP recebe um `request_id`, devolvido no header `X-Request-ID` e mostrado
+na interface como "código do erro" quando uma resposta falha, para achar a requisição nos
+dois arquivos. O console mostra o mesmo log operacional em texto (`LOG_FORMAT=json` para
+coletores de log de container); `LOG_LEVEL=DEBUG` inclui health checks, arquivos estáticos
+e a duração de cada chamada à API de IA. Mensagens de erro na interface são sempre em
 linguagem natural compreensível, nunca um stacktrace cru.
 
 ## 9. Limitações conhecidas e próximos passos

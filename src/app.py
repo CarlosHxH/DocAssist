@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import sys
 
+import log_setup
 import rag
 
 
 def main() -> None:
+    # Só arquivo: o console é a própria conversa da CLI.
+    log_setup.setup_logging(console=False)
     try:
         collection = rag.load_index()
     except FileNotFoundError as exc:
@@ -35,7 +38,7 @@ def main() -> None:
         if not question:
             continue
 
-        result = rag.answer(question, collection=collection)
+        result = rag.answer(question, collection=collection, channel="cli")
         print(f"\n{result.answer}\n")
         if result.status == "ok":
             print(f"(status: ok | fontes: {', '.join(result.sources)} | {result.latency_seconds:.1f}s)\n")

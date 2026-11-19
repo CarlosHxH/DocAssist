@@ -12,6 +12,7 @@ import json
 import time
 
 import config
+import log_setup
 import rag
 
 QUESTIONS_PATH = config.BASE_DIR / "tests" / "eval_questions.json"
@@ -30,6 +31,7 @@ def grade(item: dict, result: rag.AnswerResult) -> bool:
 
 
 def main() -> None:
+    log_setup.setup_logging(console=False)
     collection = rag.load_index()
     questions = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
 
@@ -37,7 +39,7 @@ def main() -> None:
     passed = 0
     start = time.monotonic()
     for item in questions:
-        result = rag.answer(item["question"], collection=collection)
+        result = rag.answer(item["question"], collection=collection, channel="eval")
         ok = grade(item, result)
         passed += int(ok)
         rows.append((item, result, ok))

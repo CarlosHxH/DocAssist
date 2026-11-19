@@ -59,6 +59,54 @@ themeBtn.addEventListener("click", () => {
 
 applyTheme(document.documentElement.dataset.theme || "light");
 
+// ---------- coleta de erros do navegador ----------
+
+const MAX_CLIENT_REPORTS = 20;
+const reportedErrors = new Set();
+
+// Envia erros de JavaScript para o servidor (logs/docassist.log), que de outra forma só
+// apareceriam no console do navegador do usuário. Limitado e sem duplicatas por página.
+function reportClientError({ message, source = "", stack = "", level = "error" }) {
+  try {
+    const key = `${message}|${source}`;
+    if (reportedErrors.has(key) || reportedErrors.size >= MAX_CLIENT_REPORTS) return;
+    reportedErrors.add(key);
+    const body = JSON.stringify({
+      level,
+      message: String(message).slice(0, 2000),
+      source: String(source).slice(0, 500),
+      stack: String(stack || "").slice(0, 2000),
+      url: location.pathname,
+      user_agent: navigator.userAgent,
+    });
+    fetch("/api/client-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) {
+    /* coleta de log nunca pode quebrar a interface */
+  }
+}
+
+window.addEventListener("error", (event) => {
+  reportClientError({
+    message: event.message || "Erro de script",
+    source: event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : "",
+    stack: event.error && event.error.stack,
+  });
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason || {};
+  reportClientError({
+    message: `Promise rejeitada: ${reason.message || reason}`,
+    source: "unhandledrejection",
+    stack: reason.stack,
+  });
+});
+
 // ---------- alertas ----------
 
 function showToast(message, type = "info", duration = 3200) {
@@ -169,10 +217,14 @@ function renderMessage(entry) {
     article.append(copyBtn);
   }
 
-  if (typeof entry.latency === "number") {
+  const meta = [];
+  if (typeof entry.latency === "number") meta.push(`${entry.latency.toFixed(1)}s`);
+  // Em erros, o código permite achar a requisição em logs/docassist.log e interactions.jsonl.
+  if (entry.status === "erro" && entry.requestId) meta.push(`código do erro: ${entry.requestId}`);
+  if (meta.length) {
     const latency = document.createElement("p");
     latency.className = "latency";
-    latency.textContent = `${entry.latency.toFixed(1)}s`;
+    latency.textContent = meta.join(" · ");
     article.append(latency);
   }
 
@@ -269,7 +321,14 @@ async function submit(question) {
     const data = await response.json().catch(() => null);
     typingEl.remove();
 
-    if (!data) throw new Error("Resposta inválida do servidor.");
+    if (!data) {
+      reportClientError({
+        message: `Resposta não-JSON de /api/ask (HTTP ${response.status})`,
+        source: "submit",
+        level: "warning",
+      });
+      throw new Error("Resposta inválida do servidor.");
+    }
 
     const assistantEntry = {
       role: "assistant",
@@ -277,6 +336,7 @@ async function submit(question) {
       status: data.status || "erro",
       sourcesDetail: data.sources_detail || [],
       latency: data.latency_seconds,
+      requestId: data.request_id || response.headers.get("X-Request-ID"),
     };
     history.push(assistantEntry);
     saveHistory();
