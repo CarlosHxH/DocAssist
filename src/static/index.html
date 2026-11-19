@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DocAssist · Documentação de TI</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23112e37'/%3E%3Cpath d='M28 34h44a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6H46l-14 12V66h-4a6 6 0 0 1-6-6V40a6 6 0 0 1 6-6Z' fill='%2350c6b0'/%3E%3C/svg%3E">
+<script>
+  // aplica o tema antes de pintar a página, evitando o "flash" claro
+  (function () {
+    var theme;
+    try { theme = localStorage.getItem("docassist_theme"); } catch (e) {}
+    if (theme !== "dark" && theme !== "light") {
+      theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js" defer></script>
 </head>
@@ -23,7 +34,16 @@
   <small>Processamento 100% local · ALMT<br>Nenhum dado sai da rede</small>
 </aside>
 <main>
-  <header><span>BASE DE CONHECIMENTO · TI</span><span class="tag">RAG LOCAL</span></header>
+  <header>
+    <span>BASE DE CONHECIMENTO · TI</span>
+    <div class="header-actions">
+      <span class="tag">RAG LOCAL</span>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-pressed="false" aria-label="Ativar modo escuro" title="Ativar modo escuro">
+        <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+    </div>
+  </header>
   <section id="intro">
     <div class="eyebrow">CONSULTE A DOCUMENTAÇÃO</div>
     <h1>Qual é a sua dúvida?</h1>

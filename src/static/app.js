@@ -8,8 +8,10 @@ const docCountEl = document.querySelector("#doc-count");
 const docNamesEl = document.querySelector("#doc-names");
 const confirmDialog = document.querySelector("#confirm-dialog");
 const toastsEl = document.querySelector("#toasts");
+const themeBtn = document.querySelector("#theme-toggle");
 
 const HISTORY_KEY = "docassist_history_v2";
+const THEME_KEY = "docassist_theme";
 
 let history = loadHistory();
 let busy = false;
@@ -33,6 +35,29 @@ function saveHistory() {
     /* armazenamento indisponível (ex. aba privada) — segue sem persistir */
   }
 }
+
+// ---------- tema ----------
+
+function applyTheme(theme) {
+  const dark = theme === "dark";
+  document.documentElement.dataset.theme = theme;
+  const label = dark ? "Ativar modo claro" : "Ativar modo escuro";
+  themeBtn.setAttribute("aria-label", label);
+  themeBtn.title = label;
+  themeBtn.setAttribute("aria-pressed", String(dark));
+}
+
+themeBtn.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch (err) {
+    /* armazenamento indisponível — o tema vale só para esta sessão */
+  }
+});
+
+applyTheme(document.documentElement.dataset.theme || "light");
 
 // ---------- alertas ----------
 
@@ -185,7 +210,6 @@ function addTyping() {
   label.textContent = "ASSISTENTE · DOCASSIST";
   const content = document.createElement("div");
   content.className = "text";
-  content.style.color = "#8aa0a9";
   content.textContent = "Consultando trechos e gerando resposta na CPU…";
   article.append(label, content);
   chat.append(article);
