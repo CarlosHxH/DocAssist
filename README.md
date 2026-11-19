@@ -7,7 +7,7 @@ internos de TI (deploy, branching, nomenclatura, Docker, migrations, auditoria,
 monitoramento, Portal de Acesso) usando **RAG (Retrieval-Augmented Generation) com LLM
 100% local via Ollama** — nenhum dado sai da máquina onde o projeto roda.
 
-> **Importante sobre os dados:** a pasta `corpus/` contém documentação **fictícia**,
+> **Importante sobre os dados:** a pasta `rag/` contém documentação **fictícia**,
 > escrita para este MVP, inspirada na estrutura típica de um departamento de TI (ela não
 > reproduz nenhum documento institucional real). Isso segue a exigência do edital de usar
 > apenas dados fictícios, públicos ou expressamente autorizados.
@@ -42,7 +42,7 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
           → log da interação em logs/interactions.jsonl
 ```
 
-`ingest.py` é o componente de ingestão: lê os `.md` de `corpus/`, divide em trechos por
+`ingest.py` é o componente de ingestão: lê os `.md` de `rag/`, divide em trechos por
 seção (e subdivide seções longas, respeitando o limite de contexto do modelo de
 embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no ChromaDB (SQLite em
 `chroma_db/`). Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver
@@ -67,7 +67,7 @@ embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no Ch
 
 ## 4. Dados e integração
 
-Corpus fictício: 9 documentos Markdown em `corpus/` (~59 trechos indexados). Nenhuma API
+rag fictício: 9 documentos Markdown em `rag/` (~59 trechos indexados). Nenhuma API
 externa é usada — toda comunicação é local, entre o app Python e o serviço Ollama
 (`http://localhost:11434`), via HTTP (`urllib`, biblioteca padrão). `rag.py` mostra
 explicitamente a chamada a `embed()` e `generate()` como os dois pontos de integração com
@@ -91,7 +91,7 @@ o recurso de IA.
 ```bash
 cd docassist
 
-# 1. Gera o índice vetorial a partir de corpus/ (roda uma vez, ou de novo se o corpus mudar)
+# 1. Gera o índice vetorial a partir de rag/ (roda uma vez, ou de novo se o rag mudar)
 python src/ingest.py
 
 # 2a. Roda o assistente via linha de comando
@@ -135,9 +135,9 @@ acerto comparado ao critério de sucesso (80%).
 
 Documentados e com evidência em `tests/`:
 
-1. **Funcionamento esperado** — pergunta cuja resposta está no corpus → resposta correta
+1. **Funcionamento esperado** — pergunta cuja resposta está no rag → resposta correta
    com citação da fonte certa. Ex.: perguntas #1-15 de `tests/eval_questions.json`.
-2. **Caso-limite / entrada inválida** — pergunta fora do escopo do corpus, vazia ou vaga
+2. **Caso-limite / entrada inválida** — pergunta fora do escopo do rag, vazia ou vaga
    (perguntas #16-20) → o sistema reconhece a ausência de contexto relevante e recusa
    responder, sem alucinar.
 3. **Falha/indisponibilidade da IA** — serviço Ollama fora do ar ou inacessível → o
@@ -147,7 +147,7 @@ Documentados e com evidência em `tests/`:
 
 ## 7. Segurança e privacidade
 
-- Corpus 100% fictício — nenhum hostname, nome de time ou credencial reais.
+- rag 100% fictício — nenhum hostname, nome de time ou credencial reais.
 - Nenhuma senha/token no código.
 - Execução inteiramente local: nenhum dado sai da máquina do desenvolvedor.
 - A ferramenta é somente leitura/resposta a perguntas (não executa ações sobre sistemas
@@ -163,14 +163,14 @@ linguagem natural compreensível, nunca um stacktrace cru.
 
 ## 9. Limitações conhecidas e próximos passos
 
-- Corpus pequeno e fictício; não escala para documentação real sem reprocessamento e sem
+- rag pequeno e fictício; não escala para documentação real sem reprocessamento e sem
   camadas adicionais de tratamento de dados sensíveis.
 - Modelo local pequeno (`qwen2.5:3b`) tem qualidade de geração inferior a LLMs maiores via
   API, podendo errar nuances de fraseado mesmo com grounding; a geração também é lenta
   (dezenas de segundos por resposta em hardware sem GPU dedicada).
 - RAG reduz mas não elimina o risco de alucinação; não há avaliação contínua automatizada
   (ex. métricas tipo RAGAS) além do conjunto de teste fixo incluído.
-- Sem atualização incremental do índice (é preciso reexecutar `ingest.py` quando o corpus
+- Sem atualização incremental do índice (é preciso reexecutar `ingest.py` quando o rag
   muda) e sem autenticação/controle de acesso — não deve ser usado com documentação
   institucional real sem essas camadas.
 - Próximos passos: avaliação automatizada de qualidade de resposta, atualização
@@ -182,7 +182,7 @@ linguagem natural compreensível, nunca um stacktrace cru.
 
 ```
 docassist/
-  corpus/                  documentação fictícia (.md) usada como base de conhecimento
+  rag/                  documentação fictícia (.md) usada como base de conhecimento
   src/                     código-fonte (rode os scripts a partir da raiz: `python src/<script>.py`)
     config.py              configuração lida do .env (API, modelos, ChromaDB)
     ollama_client.py       cliente HTTP mínimo para a API local do Ollama

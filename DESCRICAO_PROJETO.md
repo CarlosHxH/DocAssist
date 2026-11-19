@@ -23,7 +23,7 @@ perguntas de teste com gabarito. **Resultado medido: 20/20 (100%)** — ver
 
 ## Requisitos priorizados
 
-1. Responder perguntas sobre os padrões documentados no corpus, citando a fonte.
+1. Responder perguntas sobre os padrões documentados no rag, citando a fonte.
 2. Recusar responder (sem alucinar) quando a pergunta está fora do escopo da base.
 3. Rodar inteiramente local (sem enviar dados para serviços externos).
 4. Registrar cada interação para fins de auditoria/observabilidade.
@@ -31,7 +31,7 @@ perguntas de teste com gabarito. **Resultado medido: 20/20 (100%)** — ver
 
 ## Arquitetura (resumo)
 
-Pipeline RAG local: `ingest.py` converte os documentos fictícios de `corpus/` em um índice
+Pipeline RAG local: `ingest.py` converte os documentos fictícios de `rag/` em um índice
 vetorial (`index.json`, via embeddings do Ollama); `rag.py` faz a busca por similaridade de
 cosseno, decide se há contexto suficiente (limiar calibrado em 0.40) e gera a resposta
 final via LLM local; `app.py` é a interface de linha de comando e `web_server.py` +

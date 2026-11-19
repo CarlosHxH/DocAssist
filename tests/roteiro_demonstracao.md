@@ -11,7 +11,7 @@ centraliza isso num assistente de perguntas e respostas.
 ## 2. Fluxo completo funcionando
 
 ```
-python src/ingest.py      # gera index.json a partir de corpus/ (uma vez)
+python src/ingest.py      # gera index.json a partir de rag/ (uma vez)
 python src/app.py          # abre a CLI interativa
 Pergunta> Qual o padrão de nome para uma branch de hotfix?
 ```
@@ -44,7 +44,7 @@ Mostrar, ao vivo:
   maior latência que um LLM maior via API.
 - Sem framework de orquestração (ex. LangChain): pipeline direto em ~200 linhas de Python
   puro, mais fácil de explicar e depurar; o edital não exige grafos/roteamento.
-- Corpus fictício, nunca dados institucionais reais — ver seção "Segurança e privacidade"
+- rag fictício, nunca dados institucionais reais — ver seção "Segurança e privacidade"
   do README.
-- Limitações: corpus pequeno, modelo local lento, sem avaliação contínua automatizada, sem
+- Limitações: rag pequeno, modelo local lento, sem avaliação contínua automatizada, sem
   atualização incremental do índice, sem autenticação — detalhadas no README.

@@ -1,4 +1,4 @@
-"""Lê os documentos .md em corpus/ (recursivamente), divide em trechos (chunks) por seção,
+"""Lê os documentos .md em rag/ (recursivamente), divide em trechos (chunks) por seção,
 gera embeddings via API de IA e grava tudo no ChromaDB persistente (SQLite).
 
 Uso:
@@ -15,7 +15,7 @@ import config
 import vector_store
 from ollama_client import OllamaUnavailableError, embed
 
-CORPUS_DIR = config.CORPUS_DIR
+RAG_DIR = config.RAG_DIR
 
 HEADING_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
@@ -103,18 +103,18 @@ def chunk_markdown(text: str) -> list[tuple[str, str]]:
 
 
 def main() -> None:
-    if not CORPUS_DIR.exists():
-        print(f"Pasta de corpus não encontrada: {CORPUS_DIR}", file=sys.stderr)
+    if not RAG_DIR.exists():
+        print(f"Pasta de rag não encontrada: {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
     # Busca recursiva (ex.: wikis clonadas em subpastas), ignorando pastas ocultas como .git.
     doc_paths = sorted(
         path
-        for path in CORPUS_DIR.rglob("*.md")
-        if not any(part.startswith(".") for part in path.relative_to(CORPUS_DIR).parts)
+        for path in RAG_DIR.rglob("*.md")
+        if not any(part.startswith(".") for part in path.relative_to(RAG_DIR).parts)
     )
     if not doc_paths:
-        print(f"Nenhum documento .md encontrado em {CORPUS_DIR}", file=sys.stderr)
+        print(f"Nenhum documento .md encontrado em {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
     ids: list[str] = []
@@ -122,7 +122,7 @@ def main() -> None:
     embeddings: list[list[float]] = []
     metadatas: list[dict] = []
     for doc_path in doc_paths:
-        source = doc_path.relative_to(CORPUS_DIR).as_posix()
+        source = doc_path.relative_to(RAG_DIR).as_posix()
         text = doc_path.read_text(encoding="utf-8")
         for heading, body in chunk_markdown(text):
             if not body:

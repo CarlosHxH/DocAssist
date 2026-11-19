@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Raiz do projeto (um nível acima de src/): .env, corpus/ e chroma_db/ ficam lá.
+# Raiz do projeto (um nível acima de src/): .env, rag/ e chroma_db/ ficam lá.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env", override=False)
@@ -43,7 +43,7 @@ CHROMA_PATH = _resolve_path(os.environ.get("CHROMA_PATH", "chroma_db"))
 CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "docassist")
 
 # --- Ingestão e recuperação -------------------------------------------------------------
-CORPUS_DIR = _resolve_path(os.environ.get("CORPUS_DIR", "corpus"))
+RAG_DIR = _resolve_path(os.environ.get("RAG_DIR", "rag"))
 # O modelo de embeddings padrão (all-minilm) tem janela de contexto pequena; ajuste se
 # trocar para um modelo com janela maior.
 MAX_CHUNK_CHARS = int(os.environ.get("MAX_CHUNK_CHARS", "500"))

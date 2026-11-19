@@ -22,7 +22,7 @@ import rag
 import vector_store
 
 STATIC_DIR = Path(__file__).parent / "static"
-CORPUS_DIR = config.CORPUS_DIR
+RAG_DIR = config.RAG_DIR
 
 # Arquivos estáticos servidos tal como estão (sem build step), como em mini-chat-rag/static.
 STATIC_FILES = {
@@ -34,11 +34,11 @@ STATIC_FILES = {
 
 
 def _load_doc_titles() -> dict[str, str]:
-    """Mapeia cada arquivo do corpus ao seu título (linha `# ...`), para a UI mostrar um
+    """Mapeia cada arquivo do rag ao seu título (linha `# ...`), para a UI mostrar um
     nome legível em vez do nome de arquivo cru."""
     titles: dict[str, str] = {}
-    for path in sorted(CORPUS_DIR.rglob("*.md")):
-        name = path.relative_to(CORPUS_DIR).as_posix()
+    for path in sorted(RAG_DIR.rglob("*.md")):
+        name = path.relative_to(RAG_DIR).as_posix()
         try:
             first_line = path.read_text(encoding="utf-8").splitlines()[0]
         except (OSError, IndexError):

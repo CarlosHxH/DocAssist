@@ -4,7 +4,7 @@ __pycache__
 logs/*.jsonl
 web_server.log
 # Regenerado sempre na primeira subida do container (docker-entrypoint.sh), para garantir
-# que o índice bata com o corpus/ que foi de fato incluído nesta imagem.
+# que o índice bata com o rag/ que foi de fato incluído nesta imagem.
 index.json
 chroma_db/
 .env

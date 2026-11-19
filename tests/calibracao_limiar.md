@@ -27,5 +27,5 @@ fora do escopo e observando a separação dos scores.
 Os scores dentro do escopo ficaram sempre acima de 0.51; os fora do escopo, sempre abaixo
 de 0.38. O limiar foi definido em **0.40**, no meio dessa margem, para separar os dois
 grupos com folga. Esse valor é específico do modelo de embeddings usado (`all-minilm`) e
-do corpus; se o corpus crescer ou o modelo mudar, a calibração deve ser refeita (rodar os
+do rag; se o rag crescer ou o modelo mudar, a calibração deve ser refeita (rodar os
 testes acima novamente e ajustar `rag.SIMILARITY_THRESHOLD`).

@@ -1,5 +1,5 @@
 """Interface de linha de comando do DocAssist: pergunte sobre os padrões internos de TI
-(documentação fictícia em corpus/) e receba uma resposta grounded, com citação da fonte.
+(documentação fictícia em rag/) e receba uma resposta grounded, com citação da fonte.
 
 Uso:
     python src/app.py
