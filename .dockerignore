@@ -4,9 +4,10 @@ __pycache__
 *.pyc
 logs/
 web_server.log
-# Só a documentação fictícia de rag/ entra na imagem; nunca subpastas ocultas (wikis
-# clonadas, .git) com documentação institucional real.
-rag/.*
+# Só a documentação fictícia de rag/example/ entra na imagem; nunca outras pastas de rag/
+# (wikis clonadas, .git) com documentação institucional real.
+rag/*
+!rag/example
 # Regenerado sempre na primeira subida do container (docker-entrypoint.sh), para garantir
 # que o índice bata com o rag/ que foi de fato incluído nesta imagem.
 index.json

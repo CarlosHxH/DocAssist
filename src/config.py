@@ -38,9 +38,16 @@ EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-minilm")
 GENERATION_MODEL = os.environ.get("GENERATION_MODEL", "qwen2.5:3b")
 GENERATION_TEMPERATURE = float(os.environ.get("GENERATION_TEMPERATURE", "0.1"))
 
-# --- Banco vetorial (ChromaDB persistente, armazenado em SQLite) -------------------------
+# --- Banco vetorial ---------------------------------------------------------------------
+# "chroma": ChromaDB persistente, armazenado em SQLite em CHROMA_PATH.
+# "qdrant": servidor Qdrant em QDRANT_URL (API REST).
+VECTOR_STORE = os.environ.get("VECTOR_STORE", "chroma").strip().lower()
 CHROMA_PATH = _resolve_path(os.environ.get("CHROMA_PATH", "chroma_db"))
-CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "docassist")
+VECTOR_COLLECTION = os.environ.get("VECTOR_COLLECTION", "docassist")
+QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333").rstrip("/")
+# Enviada no header "api-key". Deixe vazio se o Qdrant não exigir autenticação.
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
+VECTOR_COLLECTION = os.environ.get("VECTOR_COLLECTION", "docassist")
 
 # --- Ingestão e recuperação -------------------------------------------------------------
 RAG_DIR = _resolve_path(os.environ.get("RAG_DIR", "rag"))

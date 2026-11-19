@@ -155,24 +155,25 @@ def main() -> None:
             metadatas.append({"source": source, "heading": heading})
         print(f"Processado: {source} (total de chunks acumulados: {len(ids)})")
 
-    collection = vector_store.recreate_collection()
-    # Inserção em lotes para respeitar o limite de batch do Chroma em corpora grandes.
-    batch_size = 1000
-    for start in range(0, len(ids), batch_size):
-        end = start + batch_size
-        collection.add(
-            ids=ids[start:end],
-            documents=documents[start:end],
-            embeddings=embeddings[start:end],
-            metadatas=metadatas[start:end],
-        )
+    try:
+        index = vector_store.recreate_collection(dimension=len(embeddings[0]))
+        # Inserção em lotes para respeitar o limite de batch do Chroma (e o tamanho máximo
+        # de requisição do Qdrant) em corpora grandes.
+        batch_size = 500
+        for start in range(0, len(ids), batch_size):
+            end = start + batch_size
+            index.add(ids[start:end], documents[start:end], embeddings[start:end], metadatas[start:end])
+    except vector_store.VectorStoreUnavailableError as exc:
+        logger.error("Ingestão interrompida ao gravar no banco vetorial: %s", exc)
+        print(f"ERRO: {exc}", file=sys.stderr)
+        sys.exit(1)
     logger.info(
-        "Ingestão concluída: %d chunks de %d documentos em %.1fs (embedding=%s, coleção=%s)",
-        len(ids), len(doc_paths), time.monotonic() - started, config.EMBEDDING_MODEL, config.CHROMA_COLLECTION,
+        "Ingestão concluída: %d chunks de %d documentos em %.1fs (embedding=%s, banco=%s)",
+        len(ids), len(doc_paths), time.monotonic() - started, config.EMBEDDING_MODEL, vector_store.describe(),
     )
     print(
-        f"\nÍndice salvo no ChromaDB ({config.CHROMA_PATH}, coleção "
-        f"'{config.CHROMA_COLLECTION}') com {len(ids)} chunks de {len(doc_paths)} documentos."
+        f"\nÍndice salvo no {vector_store.describe()} com {len(ids)} chunks de "
+        f"{len(doc_paths)} documentos."
     )
 
 

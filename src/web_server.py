@@ -18,8 +18,6 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import chromadb
-
 import config
 import log_setup
 import ollama_client
@@ -109,7 +107,7 @@ def _sources_detail(result: rag.AnswerResult, doc_titles: dict[str, str]) -> lis
 
 class DocAssistHandler(BaseHTTPRequestHandler):
     # Carregados uma vez por processo (não por requisição), definidos em main().
-    collection: chromadb.Collection | None = None
+    collection: vector_store.VectorIndex | None = None
     doc_names: list[str] = []
     doc_titles: dict[str, str] = {}
 
@@ -307,13 +305,16 @@ def main() -> None:
     except FileNotFoundError as exc:
         logger.error("Índice vetorial não encontrado: %s", exc)
         raise SystemExit(1) from exc
+    except vector_store.VectorStoreUnavailableError as exc:
+        logger.error("Banco vetorial indisponível: %s", exc)
+        raise SystemExit(1) from exc
     DocAssistHandler.doc_names = vector_store.list_sources(DocAssistHandler.collection)
     DocAssistHandler.doc_titles = _load_doc_titles()
 
     # Configuração efetiva no início do log (sem a chave de API), para facilitar o suporte.
     logger.info(
-        "Configuração: provedor=%s api=%s embedding=%s geração=%s top_k=%s limiar=%s logs=%s nível=%s",
-        config.LLM_PROVIDER, config.LLM_API_URL, config.EMBEDDING_MODEL, config.GENERATION_MODEL,
+        "Configuração: provedor=%s api=%s banco=%s embedding=%s geração=%s top_k=%s limiar=%s logs=%s nível=%s",
+        config.LLM_PROVIDER, config.LLM_API_URL, vector_store.describe(), config.EMBEDDING_MODEL, config.GENERATION_MODEL,
         config.TOP_K, config.SIMILARITY_THRESHOLD, config.LOG_DIR, config.LOG_LEVEL,
     )
     _check_ai_available()

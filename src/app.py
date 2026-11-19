@@ -11,6 +11,7 @@ import sys
 
 import log_setup
 import rag
+import vector_store
 
 
 def main() -> None:
@@ -18,7 +19,7 @@ def main() -> None:
     log_setup.setup_logging(console=False)
     try:
         collection = rag.load_index()
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, vector_store.VectorStoreUnavailableError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         sys.exit(1)
 

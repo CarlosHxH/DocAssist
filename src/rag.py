@@ -1,4 +1,4 @@
-"""Núcleo do pipeline RAG: recuperação (busca vetorial no ChromaDB) + geração grounded.
+"""Núcleo do pipeline RAG: recuperação (busca vetorial no ChromaDB ou Qdrant) + geração grounded.
 
 Mantido separado da interface (CLI/Streamlit) para que app.py e eval.py reusem a mesma
 lógica, e para que os testes de cenário (ver tests/) possam chamar `answer()` diretamente.
@@ -11,8 +11,6 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-
-import chromadb
 
 import config
 import log_setup
@@ -65,29 +63,21 @@ class AnswerResult:
     error: str | None = None
 
 
-def load_index() -> chromadb.Collection:
+def load_index() -> vector_store.VectorIndex:
     return vector_store.get_collection()
 
 
 def retrieve(
-    question_embedding: list[float], collection: chromadb.Collection, top_k: int = TOP_K
+    question_embedding: list[float], collection: vector_store.VectorIndex, top_k: int = TOP_K
 ) -> list[RetrievedChunk]:
-    result = collection.query(
-        query_embeddings=[question_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
-    )
-    # Coleção criada com espaço "cosine": distância = 1 - similaridade de cosseno.
     return [
         RetrievedChunk(
-            score=1.0 - distance,
-            source=metadata["source"],
-            heading=metadata["heading"],
-            text=document,
+            score=match.score,
+            source=match.metadata["source"],
+            heading=match.metadata["heading"],
+            text=match.text,
         )
-        for document, metadata, distance in zip(
-            result["documents"][0], result["metadatas"][0], result["distances"][0]
-        )
+        for match in collection.query(question_embedding, top_k)
     ]
 
 
@@ -134,7 +124,7 @@ def _log_interaction(result: AnswerResult, channel: str | None) -> None:
 
 
 def answer(
-    question: str, collection: chromadb.Collection | None = None, channel: str | None = None
+    question: str, collection: vector_store.VectorIndex | None = None, channel: str | None = None
 ) -> AnswerResult:
     """Responde `question`. `channel` ("cli", "web", "eval") só identifica a origem no log."""
     start = time.monotonic()
@@ -202,6 +192,19 @@ def answer(
                 answer=(
                     "O serviço de IA não está disponível no momento. "
                     "Verifique se a API configurada no .env está acessível e tente novamente."
+                ),
+                status="erro",
+                error=str(exc),
+            )
+        )
+
+    except vector_store.VectorStoreUnavailableError as exc:
+        return finish(
+            AnswerResult(
+                question=question,
+                answer=(
+                    "O banco vetorial não está disponível no momento. "
+                    "Verifique se o banco configurado no .env está acessível e tente novamente."
                 ),
                 status="erro",
                 error=str(exc),

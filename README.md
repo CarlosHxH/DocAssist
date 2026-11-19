@@ -33,7 +33,8 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
           rag.answer()
                1. embed(pergunta)              → ollama_client.py → Ollama /api/embeddings
                                                    (modelo all-minilm)
-               2. busca vetorial top-k no ChromaDB (cosseno, SQLite em chroma_db/)
+               2. busca vetorial top-k (cosseno) no ChromaDB (SQLite em chroma_db/)
+                  ou no Qdrant (servidor em QDRANT_URL), conforme VECTOR_STORE
                3. se a melhor similaridade < limiar (0.40) → recusa responder
                4. monta prompt = instruções + trechos recuperados + pergunta
                5. generate(prompt)              → ollama_client.py → Ollama /api/generate
@@ -44,9 +45,18 @@ eval.py` para medir isso — o relatório é salvo em `tests/relatorio_avaliacao
 
 `ingest.py` é o componente de ingestão: lê os `.md` de `rag/`, divide em trechos por
 seção (e subdivide seções longas, respeitando o limite de contexto do modelo de
-embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no ChromaDB (SQLite em
-`chroma_db/`). Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver
-`.env.example`); ao trocar `EMBEDDING_MODEL`, rode `python src/ingest.py` novamente.
+embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no banco vetorial.
+Modelos, URL/chave da API e parâmetros de busca ficam no `.env` (ver `.env.example`); ao
+trocar `EMBEDDING_MODEL` ou `VECTOR_STORE`, rode `python src/ingest.py` novamente.
+
+**Banco vetorial** (`VECTOR_STORE` no `.env`):
+
+- `chroma` (padrão): ChromaDB persistente em SQLite (`chroma_db/`), sem servidor.
+- `qdrant`: servidor Qdrant em `QDRANT_URL`, acessado pela API REST (biblioteca padrão,
+  sem dependência extra). Configure também `QDRANT_API_KEY` (header `api-key`) e
+  `VECTOR_COLLECTION`. O texto de cada trecho e o modelo de embeddings vão no payload dos
+  pontos; se o modelo do `.env` mudar, o app pede reindexação (e o container reindexa
+  sozinho na subida).
 
 ## 3. Uso efetivo de IA
 
@@ -67,10 +77,10 @@ embeddings), gera o embedding de cada trecho via API de IA e persiste tudo no Ch
 
 ## 4. Dados e integração
 
-rag fictício: 9 documentos Markdown em `rag/` (o número de trechos indexados depende de
+rag fictício: 9 documentos Markdown em `rag/example/` (o número de trechos indexados depende de
 `MAX_CHUNK_CHARS`). Cada documento abre com um aviso de que é fictício, e os nomes de
-servidor usam o domínio de exemplo `exemplo.internal`. Subpastas ocultas de `rag/` são
-ignoradas pelo Git, pelo Docker e pela ingestão: **nunca coloque documentação institucional
+servidor usam o domínio de exemplo `exemplo.internal`. Fora `rag/example/`, o conteúdo de `rag/` é
+ignorado pelo Git e pelo Docker: **nunca versione documentação institucional
 real nesta pasta** de um repositório público. Nenhuma API
 externa é usada — toda comunicação é local, entre o app Python e o serviço Ollama
 (`http://localhost:11434`), via HTTP (`urllib`, biblioteca padrão). `rag.py` mostra
@@ -203,10 +213,10 @@ linguagem natural compreensível, nunca um stacktrace cru.
 docassist/
   rag/                  documentação fictícia (.md) usada como base de conhecimento
   src/                     código-fonte (rode os scripts a partir da raiz: `python src/<script>.py`)
-    config.py              configuração lida do .env (API, modelos, ChromaDB)
+    config.py              configuração lida do .env (API, modelos, banco vetorial)
     ollama_client.py       cliente HTTP mínimo para a API local do Ollama
-    vector_store.py        acesso ao ChromaDB persistente
-    ingest.py              chunking + geração de embeddings + ChromaDB
+    vector_store.py        acesso ao banco vetorial (ChromaDB ou Qdrant)
+    ingest.py              chunking + geração de embeddings + banco vetorial
     rag.py                 núcleo do pipeline RAG (retrieval + geração + logging)
     app.py                 interface de linha de comando
     web_server.py          servidor HTTP do site de chat (stdlib, sem Flask/FastAPI)

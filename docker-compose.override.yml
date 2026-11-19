@@ -3,7 +3,7 @@
 # nada daqui vai para o deploy.
 services:
   app:
-    # Variáveis extras do .env (CHROMA_COLLECTION, LOG_*, ...), como antes.
+    # Variáveis extras do .env (VECTOR_COLLECTION, LOG_*, ...), como antes.
     env_file:
       - path: .env
         required: false

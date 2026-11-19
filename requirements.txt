@@ -1,4 +1,5 @@
-# Banco vetorial persistente (armazenado em SQLite em CHROMA_PATH).
+# Banco vetorial persistente (armazenado em SQLite em CHROMA_PATH) quando VECTOR_STORE=chroma.
+# O Qdrant (VECTOR_STORE=qdrant) é acessado pela API REST, só com a biblioteca padrão.
 chromadb>=0.5,<2
 # Leitura do arquivo .env (ver .env.example).
 python-dotenv>=1.0

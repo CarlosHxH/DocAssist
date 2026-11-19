@@ -31,7 +31,11 @@ services:
       - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.40}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FORMAT=${LOG_FORMAT:-text}
+      - VECTOR_STORE=${VECTOR_STORE:-chroma}
       - CHROMA_PATH=/app/chroma_db
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant.172-17-41-166.sslip.io}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      - VECTOR_COLLECTION=${VECTOR_COLLECTION:-docassist}
       - PORT=8765
     # Faz host.docker.internal resolver para o host também no Linux.
     extra_hosts:
