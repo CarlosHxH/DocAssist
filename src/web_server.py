@@ -43,7 +43,7 @@ STATIC_FILES = {
 
 
 # Rotas consultadas o tempo todo (polling da UI, arquivos estáticos): só aparecem em DEBUG.
-QUIET_PATHS = {"/api/health", "/favicon.ico", *STATIC_FILES}
+QUIET_PATHS = {"/api/health", "/api/live", "/favicon.ico", *STATIC_FILES}
 
 # Limites do endpoint de erros do navegador, para não virar um vetor de spam no log.
 CLIENT_LOG_MAX_BYTES = 8 * 1024
@@ -191,6 +191,11 @@ class DocAssistHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self._send_body(body)
+            return
+
+        if self.path == "/api/live":
+            # Liveness para o healthcheck do container/proxy: não consulta a API de IA.
+            self._write_json({"status": "ok"})
             return
 
         if self.path == "/api/health":

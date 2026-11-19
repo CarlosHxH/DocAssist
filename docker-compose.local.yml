@@ -51,6 +51,12 @@ services:
     depends_on:
       ollama-pull:
         condition: service_completed_successfully
+    # O docker-compose.override.yml não é carregado com -f; publica a porta aqui.
+    ports:
+      - "8765:8765"
+    env_file:
+      - path: .env
+        required: false
     environment:
       LLM_PROVIDER: ollama
       LLM_API_URL: http://ollama:11434
@@ -61,3 +67,4 @@ services:
 volumes:
   ollama_data:
   chroma_data:
+  logs_data:

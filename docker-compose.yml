@@ -1,39 +1,61 @@
 # Ambiente padrão: sobe apenas o DocAssist, usando uma API de IA externa ao compose
 # (Ollama rodando no host, OpenAI, LM Studio, vLLM...).
-#   docker compose up -d --build
-# Para subir também um Ollama em container, use o ambiente local:
-#   docker compose -f docker-compose.local.yml up -d --build
+#
+# Compatível com o Coolify (proxy Traefik + domínio wildcard sslip.io):
+#   - nenhuma porta publicada no host: o Coolify roteia o domínio até a porta 8765 do
+#     container (SERVICE_FQDN_APP_8765 abaixo). Em "Domains" do serviço `app`, use
+#     http://doc-assist.172-17-41-166.sslip.io:8765 — o ":8765" indica a porta interna do
+#     container, não é publicada nem aparece na URL de acesso;
+#   - variáveis declaradas com ${VAR:-padrão} aparecem e são editáveis na aba
+#     "Environment Variables" do Coolify;
+#   - só volumes nomeados (bind mounts relativos ficariam com dono root e o container,
+#     que roda como appuser, não conseguiria gravar os logs).
+#
+# Uso local: `docker compose up -d --build` carrega também o docker-compose.override.yml
+# (porta 8765 no host + .env). Com Ollama em container: docker-compose.local.yml.
 services:
   app:
     build: .
-    # Provedor, URL, chave e modelos vêm do .env. Se LLM_API_URL apontar para localhost
-    # (ex.: Ollama no host), defina LLM_API_URL_DOCKER=http://host.docker.internal:11434,
-    # pois localhost dentro do container é o próprio container.
-    env_file:
-      - path: .env
-        required: false
     environment:
-      LLM_API_URL: ${LLM_API_URL_DOCKER:-${LLM_API_URL:-http://host.docker.internal:11434}}
-      CHROMA_PATH: /app/chroma_db
-      PORT: "8765"
+      # Faz o Coolify gerar a rota do proxy para a porta 8765 do container.
+      - SERVICE_FQDN_APP_8765
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_API_URL=${LLM_API_URL:-http://host.docker.internal:11434}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - REQUEST_TIMEOUT_SECONDS=${REQUEST_TIMEOUT_SECONDS:-120}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-minilm}
+      - GENERATION_MODEL=${GENERATION_MODEL:-qwen2.5:3b}
+      - GENERATION_TEMPERATURE=${GENERATION_TEMPERATURE:-0.1}
+      - MAX_CHUNK_CHARS=${MAX_CHUNK_CHARS:-500}
+      - TOP_K=${TOP_K:-4}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.40}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - CHROMA_PATH=/app/chroma_db
+      - PORT=8765
     # Faz host.docker.internal resolver para o host também no Linux.
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    ports:
-      - "8765:8765"
+    expose:
+      - "8765"
     volumes:
-      - ./logs:/app/logs
+      - logs_data:/app/logs
       - chroma_data:/app/chroma_db
+    restart: unless-stopped
     healthcheck:
+      # /api/live não consulta a API de IA: se ela estiver lenta ou fora, o container
+      # continua saudável e roteado pelo proxy (a UI mostra "Modelo indisponível").
       test:
         - "CMD"
         - "python"
         - "-c"
-        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8765/api/health', timeout=3).status == 200 else 1)"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8765/api/live', timeout=3).status == 200 else 1)"
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      # A primeira subida indexa toda a base (ingest.py) antes de abrir a porta.
+      start_period: 600s
 
 volumes:
   chroma_data:
+  logs_data:

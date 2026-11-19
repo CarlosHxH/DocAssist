@@ -1,0 +1,16 @@
+# Ajustes só para uso local: o `docker compose up` carrega este arquivo automaticamente
+# junto com o docker-compose.yml. O Coolify usa apenas o docker-compose.yml (via -f), então
+# nada daqui vai para o deploy.
+services:
+  app:
+    # Variáveis extras do .env (CHROMA_COLLECTION, LOG_*, ...), como antes.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Se LLM_API_URL no .env apontar para localhost (ex.: Ollama no host), defina
+      # LLM_API_URL_DOCKER=http://host.docker.internal:11434, pois localhost dentro do
+      # container é o próprio container.
+      LLM_API_URL: ${LLM_API_URL_DOCKER:-${LLM_API_URL:-http://host.docker.internal:11434}}
+    ports:
+      - "8765:8765"
